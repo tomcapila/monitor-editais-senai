@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editais SENAI-MG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --papel: #F4F6F9;
+    --folha: #FFFFFF;
+    --tinta: #1D2A44;
+    --tinta-2: #5B6680;
+    --linha: #D6DCE6;
+    --caneta: #2448B0;
+    --grifo: #FFE36E;
+    --alerta: #B42318;
+    --fonte: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--papel); color: var(--tinta);
+    font-family: var(--fonte); font-size: 16px; line-height: 1.5;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 24px 72px; }
+
+  /* Cabeçalho: nome da ferramenta, frase-resumo e a ação principal */
+  .topo { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  h1 {
+    margin: 0; font-size: 1.0625rem; font-weight: 800; letter-spacing: .01em;
+    font-variation-settings: "wdth" 75;
+  }
+  .resumo {
+    margin: 28px 0 6px; max-width: 30ch;
+    font-size: clamp(1.625rem, 3.4vw, 2.375rem); line-height: 1.15; font-weight: 500;
+    letter-spacing: -0.015em; font-variation-settings: "wdth" 88;
+    text-wrap: balance;
+  }
+  .resumo-2 { margin: 0; color: var(--tinta-2); font-size: 1rem; max-width: 68ch; }
+  .status { color: var(--tinta-2); font-size: .875rem; margin: 14px 0 0; max-width: 72ch; }
+  .status:empty { display: none; }
+  .status.erro { color: var(--alerta); }
+
+  button {
+    font: inherit; font-weight: 700; font-size: .9375rem; cursor: pointer;
+    background: var(--caneta); color: #fff; border: 0; border-radius: 4px; padding: 10px 18px;
+    white-space: nowrap;
+  }
+  button:hover { background: #1B3A94; }
+  button:disabled { opacity: .55; cursor: progress; }
+  button.secundario { background: transparent; color: var(--caneta); box-shadow: inset 0 0 0 1.5px var(--caneta); }
+  button.secundario:hover { background: #E6ECF8; }
+  :is(button, input, a, summary):focus-visible { outline: 3px solid var(--caneta); outline-offset: 2px; }
+
+  /* Progresso de coleta e diagnóstico */
+  .progresso { margin-top: 14px; width: min(560px, 100%); }
+  .progresso[hidden] { display: none; }
+  .barra { height: 6px; background: var(--linha); border-radius: 3px; overflow: hidden; }
+  .barra > div { height: 100%; width: 0; background: var(--caneta); transition: width .4s ease; }
+  .progresso-texto { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 6px;
+                     font-size: .8125rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+  .progresso-texto .etapa { color: var(--tinta); font-weight: 600; }
+  .progresso-texto .tempo { margin-left: auto; white-space: nowrap; }
+
+  /* Filtros */
+  .filtros { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center;
+             margin-top: 36px; padding: 14px 0; border-top: 2px solid var(--tinta); }
+  .filtros input[type=search] {
+    flex: 1 1 280px; font: inherit; padding: 9px 12px; border: 1px solid var(--linha);
+    border-radius: 4px; background: var(--folha); color: var(--tinta);
+  }
+  .filtros label { display: inline-flex; gap: 7px; align-items: center; font-size: .9375rem;
+                   cursor: pointer; border-radius: 3px; }
+  .filtros input[type=checkbox] { accent-color: var(--caneta); width: 16px; height: 16px; margin: 0; }
+  .contagem { margin-left: auto; font-size: .875rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+
+  /* Lista de processos */
+  ol.lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--linha); }
+  li.edital {
+    display: grid; grid-template-columns: 172px minmax(0, 1fr) auto; gap: 8px 28px;
+    padding: 22px 0; border-bottom: 1px solid var(--linha);
+  }
+  .ident { display: flex; flex-direction: column; gap: 3px; }
+  .codigo {
+    font-size: 1.0625rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums;
+    font-variation-settings: "wdth" 72; letter-spacing: .01em;
+  }
+  .unidade { font-size: .8125rem; color: var(--tinta-2); line-height: 1.35;
+             font-variation-settings: "wdth" 88; }
+  .novo { font-size: .8125rem; font-weight: 700; color: var(--caneta); }
+
+  .corpo h2 { margin: 0 0 4px; font-size: 1.0625rem; font-weight: 700; line-height: 1.35; max-width: 68ch; }
+  .objeto { margin: 0; font-size: 1.0625rem; line-height: 1.55; max-width: 68ch;
+            display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 10px;
+          font-size: .8125rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+  .meta .prazo { color: var(--tinta); font-weight: 600; }
+  .meta .prazo.urgente { color: var(--alerta); }
+
+  mark {
+    color: inherit; padding: 0 .08em; margin: 0 -.08em; border-radius: 2px;
+    background: linear-gradient(transparent 14%, var(--grifo) 14%, var(--grifo) 90%, transparent 90%) no-repeat;
+    background-size: 100% 100%;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  }
+  /* o único movimento automático: o grifo passa uma vez quando a lista chega */
+  .desenhar mark { animation: grifar .55s cubic-bezier(.3, .7, .3, 1) .15s backwards; }
+  @keyframes grifar { from { background-size: 0% 100%; } }
+  @media (prefers-reduced-motion: reduce) {
+    .desenhar mark { animation: none; }
+    .barra > div { transition: none; }
+  }
+
+  a.abrir { color: var(--caneta); font-weight: 700; font-size: .9375rem; text-decoration: none;
+            white-space: nowrap; padding-top: 1px; border-radius: 2px; }
+  a.abrir:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .vazio { padding: 48px 0; color: var(--tinta-2); max-width: 60ch; }
+  .vazio b { color: var(--tinta); }
+
+  @media (max-width: 720px) {
+    .wrap { padding: 20px 16px 56px; }
+    li.edital { grid-template-columns: 1fr; gap: 10px; }
+    .ident { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
+    .contagem { margin-left: 0; width: 100%; }
+    .objeto { -webkit-line-clamp: 6; }
+  }
+
+  /* Diagnóstico */
+  details.diag { margin-top: 56px; border-top: 2px solid var(--tinta); padding-top: 14px; }
+  details.diag summary { cursor: pointer; font-weight: 700; font-size: 1.0625rem; border-radius: 2px; }
+  .diag-explica { margin: 10px 0 0; color: var(--tinta-2); font-size: .9375rem; max-width: 68ch; }
+  .diag-topo { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; margin: 16px 0 0; }
+  .diag-topo .status { margin: 0; }
+  .diag h3 { font-size: 1rem; margin: 26px 0 10px; }
+  .tab-diag { background: var(--folha); border: 1px solid var(--linha); border-radius: 4px;
+              padding: 12px 14px; margin-bottom: 10px; overflow-x: auto; }
+  .tab-diag p { margin: 0 0 6px; font-size: .875rem; color: var(--tinta-2); }
+  .tab-diag table { border-collapse: collapse; font-size: .8125rem; }
+  .tab-diag th, .tab-diag td { border: 1px solid var(--linha); padding: 4px 8px; text-align: left;
+                               vertical-align: top; max-width: 280px; }
+  .tab-diag th { background: var(--papel); }
+  .rede { font-size: .8125rem; word-break: break-all; list-style: none; padding: 0; margin: 0; }
+  .rede li { padding: 6px 0; border-bottom: 1px solid var(--linha); }
+  .rede .json { font-weight: 700; color: var(--caneta); margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="topo">
+      <h1>Editais SENAI-MG</h1>
+      <button id="btnColetar" type="button">Coletar agora</button>
+    </div>
+    <p class="resumo" id="resumo">Carregando…</p>
+    <p class="resumo-2" id="resumo2"></p>
+    <p class="status" id="status"></p>
+    <div class="progresso" id="progColeta" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso da coleta">
+      <div class="barra"><div></div></div>
+      <div class="progresso-texto"><span class="etapa"></span><span class="detalhe"></span><span class="tempo"></span></div>
+    </div>
+  </header>
+
+  <div class="filtros">
+    <input type="search" id="busca" placeholder="Buscar no objeto, número ou unidade" aria-label="Buscar">
+    <label><input type="checkbox" id="relevantes" checked> Só relevantes</label>
+    <label><input type="checkbox" id="abertos" checked> Esconder encerrados</label>
+    <label><input type="checkbox" id="senai"> Só SENAI</label>
+    <span class="contagem" id="contagem" aria-live="polite"></span>
+  </div>
+
+  <ol class="lista" id="lista"></ol>
+
+  <details class="diag" id="diag">
+    <summary>Diagnóstico do portal</summary>
+    <p class="diag-explica">Abre o portal da FIEMG sem janela e registra as tabelas e as chamadas que ele faz. Use quando a coleta começar a falhar ou trouxer menos processos que o normal.</p>
+    <div class="diag-topo">
+      <button id="btnDiag" type="button" class="secundario">Rodar diagnóstico</button>
+      <p class="status" id="diagStatus"></p>
+    </div>
+    <div class="progresso" id="progDiag" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso do diagnóstico">
+      <div class="barra"><div></div></div>
+      <div class="progresso-texto"><span class="etapa"></span><span class="detalhe"></span><span class="tempo"></span></div>
+    </div>
+    <div id="diagResultado"></div>
+  </details>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto",
+               "setembro","outubro","novembro","dezembro"];
+
+function hoje() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+function data(iso) { return new Date(iso.slice(0, 10) + "T00:00:00"); }
+function fmtData(iso) { if (!iso) return ""; const [y,m,d] = iso.slice(0,10).split("-"); return `${d}/${m}/${y}`; }
+function fmtHora(iso) { return iso ? new Date(iso).toLocaleString("pt-BR", {dateStyle:"short", timeStyle:"short"}) : ""; }
+function diasAte(iso) { return Math.round((data(iso) - hoje()) / 86400000); }
+function fmtSeg(s) {
+  s = Math.max(0, Math.round(s || 0));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// "entre 11 e 25 de setembro" / "entre 28 de agosto e 25 de setembro"
+function periodo(de, ate) {
+  if (!de || !ate) return "";
+  const a = data(de), b = data(ate);
+  const dia = d => d.getDate() === 1 ? "1º" : d.getDate();
+  if (de === ate) return `em ${dia(a)} de ${MESES[a.getMonth()]}`;
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear())
+    return `entre ${dia(a)} e ${dia(b)} de ${MESES[b.getMonth()]}`;
+  return `entre ${dia(a)} de ${MESES[a.getMonth()]} e ${dia(b)} de ${MESES[b.getMonth()]}`;
+}
+
+/* ---------- Grifo: marca no texto os termos que tornaram o edital relevante ---------- */
+let termos = [];
+const normChar = c => c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()[0] ?? c;
+const normTexto = s => String(s ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/* ---------- Vers\u00e3o publicada (GitHub Pages): sem servidor, l\u00ea dados.json ---------- */
+// Preenchido no in\u00edcio se houver dados.json ao lado da p\u00e1gina (ver app/exportar.py).
+let estatico = null;
+const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+// Mesmos filtros e ordem de db.listar()
+function listarEstatico({ q, relevantes, abertos, senai }) {
+  const h = hojeISO(), busca = normTexto(q);
+  const grupo = e => !e.prazo ? 1 : e.prazo < h ? 2 : 0;
+  return estatico.editais
+    .filter(e => (!busca || normTexto(`${e.titulo} ${e.objeto || ""} ${e.unidade || ""}`).includes(busca))
+              && (!relevantes || e.relevante)
+              && (!abertos || !e.prazo || e.prazo >= h)
+              && (!senai || e.do_senai))
+    .sort((a, b) => grupo(a) - grupo(b)
+                 || (a.prazo || "").localeCompare(b.prazo || "")
+                 || (b.primeiro_visto || "").localeCompare(a.primeiro_visto || ""))
+    .slice(0, 500);
+}
+
+// Mesmos n\u00fameros de db.resumo()
+function resumoEstatico() {
+  const eds = estatico.editais, rel = eds.filter(e => e.relevante);
+  const limiteNovo = Date.now() - 48 * 3600 * 1000;
+  const pubs = eds.map(e => e.data_publicacao).filter(Boolean).sort();
+  return {
+    total: eds.length,
+    relevantes: rel.length,
+    relevantes_senai: rel.filter(e => e.do_senai).length,
+    com_prazo: rel.filter(e => e.prazo).length,
+    novos: rel.filter(e => e.primeiro_visto && new Date(e.primeiro_visto) >= limiteNovo).length,
+    publicacao_de: pubs[0] || null,
+    publicacao_ate: pubs[pubs.length - 1] || null,
+  };
+}
+
+function grifar(texto) {
+  const chars = [...String(texto ?? "").replace(/\s+/g, " ").trim()];
+  // normaliza caractere a caractere para os índices baterem com o texto original
+  const plano = chars.map(normChar).join("");
+  const faixas = [];
+  for (const t of termos) {
+    for (let i = plano.indexOf(t); i !== -1; i = plano.indexOf(t, i + 1)) faixas.push([i, i + t.length]);
+  }
+  if (!faixas.length) return esc(chars.join(""));
+  faixas.sort((x, y) => x[0] - y[0]);
+  const unidas = [faixas[0]];
+  for (const [ini, fim] of faixas.slice(1)) {
+    const ult = unidas[unidas.length - 1];
+    if (ini <= ult[1]) ult[1] = Math.max(ult[1], fim); else unidas.push([ini, fim]);
+  }
+  let html = "", pos = 0;
+  for (const [ini, fim] of unidas) {
+    html += esc(chars.slice(pos, ini).join("")) + "<mark>" + esc(chars.slice(ini, fim).join("")) + "</mark>";
+    pos = fim;
+  }
+  return html + esc(chars.slice(pos).join(""));
+}
+
+/* ---------- Lista ---------- */
+// "SDE 2026003993", "CDE 2026000470": o título é só o número do processo
+const ehCodigo = t => /^[A-Z]{2,6}[\s-]*\d{4,}$/.test((t || "").trim());
+
+function linhaPrazo(prazo) {
+  if (!prazo) return "";  // o aviso de "sem prazo" aparece uma vez só, no topo
+  const dias = diasAte(prazo);
+  if (dias < 0) return `<span class="prazo">Inscrições encerradas em ${fmtData(prazo)}</span>`;
+  const quando = dias === 0 ? "encerra hoje" : dias === 1 ? "encerra amanhã" : `faltam ${dias} dias`;
+  return `<span class="prazo${dias <= 3 ? " urgente" : ""}">Inscrições até ${fmtData(prazo)}, ${quando}</span>`;
+}
+
+function ehNovo(primeiroVisto) {
+  return primeiroVisto && (Date.now() - new Date(primeiroVisto)) < 48 * 3600 * 1000;
+}
+
+function itemEdital(e) {
+  const soCodigo = ehCodigo(e.titulo);
+  const codigo = soCodigo ? e.titulo : `Código ${e.id_externo}`;
+  const objeto = e.objeto && e.objeto !== e.titulo ? e.objeto : "";
+  return `
+    <li class="edital">
+      <div class="ident">
+        <span class="codigo">${esc(codigo)}</span>
+        ${e.unidade ? `<span class="unidade">${esc(e.unidade)}</span>` : ""}
+        ${ehNovo(e.primeiro_visto) ? `<span class="novo">Novo</span>` : ""}
+      </div>
+      <div class="corpo">
+        ${soCodigo ? "" : `<h2>${grifar(e.titulo)}</h2>`}
+        ${objeto ? `<p class="objeto" title="${esc(objeto)}">${grifar(objeto)}</p>` : ""}
+        <div class="meta">
+          ${e.tipo ? `<span>${esc(e.tipo)}</span>` : ""}
+          ${e.data_publicacao ? `<span>Publicado em ${fmtData(e.data_publicacao)}</span>` : ""}
+          ${linhaPrazo(e.prazo)}
+          ${e.situacao ? `<span>${esc(e.situacao)}</span>` : ""}
+        </div>
+      </div>
+      <a class="abrir" href="${esc(e.url)}" target="_blank" rel="noopener">Abrir edital</a>
+    </li>`;
+}
+
+let primeiraCarga = true;
+async function carregar() {
+  const filtros = {
+    q: $("busca").value.trim(),
+    relevantes: $("relevantes").checked,
+    abertos: $("abertos").checked,
+    senai: $("senai").checked,
+  };
+  const dados = estatico ? listarEstatico(filtros)
+    : await (await fetch("/api/editais?" + new URLSearchParams(filtros))).json();
+  $("contagem").textContent = `${dados.length} ${dados.length === 1 ? "processo" : "processos"}`;
+  const lista = $("lista");
+  lista.classList.toggle("desenhar", primeiraCarga);
+  primeiraCarga = false;
+  if (!dados.length) {
+    lista.innerHTML = `<li class="vazio">Nenhum processo com esses filtros. Desmarque <b>Só relevantes</b> para ver tudo o que foi coletado, ou clique em <b>Coletar agora</b> para buscar novidades.</li>`;
+    return;
+  }
+  lista.innerHTML = dados.map(itemEdital).join("");
+}
+
+async function carregarResumo() {
+  const r = estatico ? resumoEstatico() : await (await fetch("/api/resumo")).json();
+  if (!r.total) {
+    $("resumo").textContent = "Nenhum processo coletado ainda.";
+    $("resumo2").textContent = "Clique em Coletar agora para buscar no Portal de Compras da FIEMG.";
+    return;
+  }
+  const n = r.relevantes, s = r.relevantes_senai;
+  const quando = periodo(r.publicacao_de, r.publicacao_ate);
+  const senai = s === 0 ? "nenhum deles do SENAI"
+              : s === n ? (n === 1 ? "e ele é do SENAI" : "todos do SENAI")
+              : `${s} ${s === 1 ? "deles é do SENAI" : "deles do SENAI"}`;
+  $("resumo").textContent = n === 0
+    ? `Nenhum processo relevante entre os ${r.total} coletados.`
+    : `${n} ${n === 1 ? "processo relevante publicado" : "processos relevantes publicados"}${quando ? " " + quando : ""}, ${senai}.`;
+  let txt = r.novos === 0 ? "Nenhum novo nas últimas 48 horas."
+    : `${r.novos} ${r.novos === 1 ? "novo" : "novos"} nas últimas 48 horas.`;
+  if (!r.com_prazo) txt += " O portal não informa o prazo de inscrição desses processos: confira no edital.";
+  $("resumo2").textContent = txt;
+}
+
+/* ---------- Progresso ---------- */
+function mostrarProgresso(el, p) {
+  if (!p || !p.rodando) { el.hidden = true; return; }
+  el.hidden = false;
+  el.querySelector(".barra > div").style.width = p.percentual + "%";
+  el.setAttribute("aria-valuenow", p.percentual);
+  el.querySelector(".etapa").textContent = p.etapa;
+  el.querySelector(".detalhe").textContent = p.detalhe || "";
+  el.querySelector(".tempo").textContent =
+    `${p.percentual}%, ${fmtSeg(p.decorrido_s)}` + (p.limite_s ? ` de ${fmtSeg(p.limite_s)}` : "");
+}
+
+// Consulta periódica enquanto a tarefa roda; para sozinha quando termina.
+function acompanhar(consultar, aoTerminar) {
+  let ativo = false;
+  return function iniciar() {
+    if (ativo) return;
+    ativo = true;
+    const id = setInterval(async () => {
+      try {
+        const r = await consultar();
+        if (!r.rodando) { clearInterval(id); ativo = false; aoTerminar && aoTerminar(); }
+      } catch { /* servidor fora do ar: tenta de novo no próximo ciclo */ }
+    }, 1000);
+  };
+}
+
+async function atualizarStatus() {
+  const s = await (await fetch("/api/status")).json();
+  const el = $("status");
+  $("btnColetar").disabled = s.rodando;
+  $("btnColetar").textContent = s.rodando ? "Coletando…" : "Coletar agora";
+  el.classList.remove("erro");
+  mostrarProgresso($("progColeta"), s.progresso);
+  if (s.rodando) { el.textContent = ""; return s; }
+  if (!s.ultima) { el.textContent = "Nenhuma coleta feita ainda."; return s; }
+  const u = s.ultima;
+  let txt = `Última coleta em ${fmtHora(u.fim)}: ${u.encontrados} processos lidos, ${u.novos} novos.`;
+  if (s.proxima) txt += ` A próxima roda sozinha em ${fmtHora(s.proxima)}.`;
+  if (u.erros) { el.classList.add("erro"); txt += ` A coleta teve erros: ${u.erros}`; }
+  el.textContent = txt;
+  return s;
+}
+
+// Na versão publicada a coleta roda no GitHub Actions, duas vezes por dia.
+function statusEstatico() {
+  const el = $("status"), u = estatico.ultima;
+  $("btnColetar").hidden = !estatico.workflow_url;
+  $("btnColetar").title = "Abre o GitHub Actions: clique em Run workflow e recarregue esta página quando terminar";
+  if (!u) { el.textContent = "Nenhuma coleta feita ainda."; return; }
+  let txt = `Última coleta em ${fmtHora(u.fim)}: ${u.encontrados} processos lidos, ${u.novos} novos. A coleta roda sozinha duas vezes por dia.`;
+  el.classList.toggle("erro", !!u.erros);
+  if (u.erros) txt += ` A coleta teve erros: ${u.erros}`;
+  el.textContent = txt;
+}
+
+const acompanharColeta = acompanhar(atualizarStatus, () => { carregarResumo(); carregar(); });
+
+$("btnColetar").addEventListener("click", async () => {
+  if (estatico) { window.open(estatico.workflow_url, "_blank", "noopener"); return; }
+  $("btnColetar").disabled = true;
+  await fetch("/api/coletar", { method: "POST" });
+  await atualizarStatus();
+  acompanharColeta();
+});
+
+let timer;
+$("busca").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(carregar, 300); });
+["relevantes", "abertos", "senai"].forEach(id => $(id).addEventListener("change", carregar));
+
+/* ---------- Diagnóstico ---------- */
+function tabelaDiag(t) {
+  const cab = t.headers.length ? `<tr>${t.headers.map(h => `<th>${esc(h)}</th>`).join("")}</tr>` : "";
+  const lin = t.linhas.map(l => `<tr>${l.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<div class="tab-diag">
+    <p>Tabela ${t.indice}${t.id ? ` (id ${esc(t.id)})` : ""}: ${t.total_linhas} linhas, amostra abaixo</p>
+    <table>${cab}${lin || `<tr><td>sem linhas</td></tr>`}</table></div>`;
+}
+
+async function carregarDiag() {
+  const d = await (await fetch("/api/diagnostico")).json();
+  const st = $("diagStatus");
+  $("btnDiag").disabled = d.rodando;
+  $("btnDiag").textContent = d.rodando ? "Rodando…" : "Rodar diagnóstico";
+  st.classList.toggle("erro", !!d.erro && !d.rodando);
+  mostrarProgresso($("progDiag"), d.progresso);
+  if (d.rodando) { st.textContent = ""; return d; }
+  if (d.erro) st.textContent = "O diagnóstico falhou: " + d.erro;
+  const r = d.resultado;
+  if (!r) { if (!d.erro) st.textContent = "Nenhum diagnóstico feito ainda."; $("diagResultado").innerHTML = ""; return d; }
+  if (!d.erro) st.textContent = `Último diagnóstico em ${fmtHora(r.quando)}: ${r.tabelas.length} tabelas e ${r.rede.length} chamadas ao servidor.`;
+  const comDados = r.tabelas.filter(t => t.total_linhas > 0 || t.headers.length);
+  $("diagResultado").innerHTML = `
+    <p><a class="abrir" href="/diagnostico-arquivos/tela.png?t=${Date.now()}" target="_blank" rel="noopener">Ver captura da tela</a></p>
+    <h3>Tabelas com conteúdo (${comDados.length})</h3>
+    ${comDados.map(tabelaDiag).join("") || "<p>Nenhuma tabela com conteúdo.</p>"}
+    <h3>Chamadas ao servidor (${r.rede.length})</h3>
+    <ol class="rede">${r.rede.map(c => `<li>
+      ${c.tipo.includes("json") ? `<span class="json">JSON</span>` : ""}${esc(c.metodo)} ${c.status} ${esc(c.url)}
+    </li>`).join("") || "<li>Nenhuma.</li>"}</ol>`;
+  return d;
+}
+
+const acompanharDiag = acompanhar(carregarDiag);
+
+$("btnDiag").addEventListener("click", async () => {
+  $("btnDiag").disabled = true;
+  await fetch("/api/diagnostico", { method: "POST" });
+  await carregarDiag();
+  acompanharDiag();
+});
+$("diag").addEventListener("toggle", async e => {
+  if (e.target.open && (await carregarDiag()).rodando) acompanharDiag();
+});
+
+/* ---------- Início ---------- */
+(async () => {
+  // dados.json só existe na versão publicada; no servidor local dá 404 e segue a API
+  try {
+    const r = await fetch("dados.json", { cache: "no-store" });
+    if (r.ok) estatico = await r.json();
+  } catch { /* sem dados.json: modo servidor */ }
+  try {
+    const f = estatico || await (await fetch("/api/filtro")).json();
+    termos = f.termos_relevantes.map(t => [...t].map(normChar).join("")).filter(Boolean);
+  } catch { termos = []; }
+  carregarResumo();
+  carregar();
+  if (estatico) {
+    $("diag").hidden = true;  // o diagnóstico precisa do servidor local
+    statusEstatico();
+    return;
+  }
+  // se a página abrir no meio de uma coleta (ex.: a automática), acompanha também
+  const s = await atualizarStatus();
+  if (s.rodando) acompanharColeta();
+})();
+</script>
+</body>
+</html>

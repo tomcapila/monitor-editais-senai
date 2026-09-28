@@ -1,0 +1,83 @@
+# Coleta os editais duas vezes por dia e publica o painel no GitHub Pages.
+# O banco (editais.db) fica no branch "dados", reescrito a cada execução,
+# para lembrar o que já foi visto e só alertar sobre o que for novo.
+name: Coleta de editais
+
+on:
+  schedule:
+    - cron: "0 9,21 * * *"   # 6h e 18h em Brasília (o GitHub usa UTC e pode atrasar alguns minutos)
+  workflow_dispatch:          # botão "Run workflow" (e "Coletar agora" no painel)
+
+permissions:
+  contents: write   # gravar o branch "dados"
+  pages: write
+  id-token: write
+
+concurrency:
+  group: coleta
+  cancel-in-progress: false
+
+env:
+  TZ: America/Sao_Paulo     # datas do banco e o filtro de "abertos" no horário de Brasília
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Recuperar o banco da última execução
+        run: |
+          if git fetch --depth=1 origin dados; then
+            git show FETCH_HEAD:editais.db > editais.db
+            echo "Banco recuperado do branch dados."
+          else
+            echo "Branch dados não existe: primeira execução, sem alertas."
+          fi
+
+      - name: Coletar
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_PARA: ${{ secrets.EMAIL_PARA }}
+        run: python -m app.coleta
+
+      - name: Salvar o banco no branch dados
+        run: |
+          tmp="$(mktemp -d)"
+          cp editais.db "$tmp/"
+          cd "$tmp"
+          git init -q -b dados
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add editais.db
+          git commit -qm "Banco de editais em $(date '+%d/%m/%Y %H:%M')"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" dados
+
+      - name: Gerar o painel estático
+        run: python -m app.exportar
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

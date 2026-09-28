@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+.env
+editais.db
+diagnostico/
+site/
+.claude/settings.local.json

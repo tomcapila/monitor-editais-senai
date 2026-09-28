@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime
+
+from .config import DB_PATH
+from .coletores.base import Edital
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS editais (
+    chave TEXT PRIMARY KEY,
+    fonte TEXT, id_externo TEXT, titulo TEXT, objeto TEXT, unidade TEXT,
+    url TEXT, situacao TEXT, tipo TEXT,
+    data_publicacao TEXT, prazo TEXT,
+    relevancia INTEGER, relevante INTEGER, do_senai INTEGER,
+    trecho_pdf TEXT,
+    primeiro_visto TEXT, ultimo_visto TEXT,
+    notificado INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS execucoes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    inicio TEXT, fim TEXT, encontrados INTEGER, novos INTEGER, erros TEXT
+);
+"""
+
+
+@contextmanager
+def conectar():
+    con = sqlite3.connect(DB_PATH)
+    con.row_factory = sqlite3.Row
+    try:
+        yield con
+        con.commit()
+    finally:
+        con.close()
+
+
+def iniciar():
+    with conectar() as con:
+        con.executescript(SCHEMA)
+
+
+def vazio() -> bool:
+    with conectar() as con:
+        return con.execute("SELECT COUNT(*) FROM editais").fetchone()[0] == 0
+
+
+def existe(chave: str) -> bool:
+    with conectar() as con:
+        return con.execute("SELECT 1 FROM editais WHERE chave = ?", (chave,)).fetchone() is not None
+
+
+def salvar(ed: Edital) -> bool:
+    """Insere ou atualiza. Devolve True se o edital é novo."""
+    agora = datetime.now().isoformat(timespec="seconds")
+    dados = {
+        "chave": ed.chave, "fonte": ed.fonte, "id_externo": ed.id_externo,
+        "titulo": ed.titulo, "objeto": ed.objeto, "unidade": ed.unidade,
+        "url": ed.url, "situacao": ed.situacao, "tipo": ed.tipo,
+        "data_publicacao": ed.data_publicacao.isoformat() if ed.data_publicacao else None,
+        "prazo": ed.prazo.isoformat() if ed.prazo else None,
+        "relevancia": ed.relevancia, "relevante": int(ed.relevante),
+        "do_senai": int(ed.do_senai), "trecho_pdf": ed.texto_extra[:1500] or None,
+        "agora": agora,
+    }
+    with conectar() as con:
+        existe = con.execute(
+            "SELECT 1 FROM editais WHERE chave = ?", (ed.chave,)
+        ).fetchone()
+        if existe:
+            con.execute(
+                """UPDATE editais SET titulo=:titulo, objeto=:objeto, unidade=:unidade,
+                   url=:url, situacao=:situacao, tipo=:tipo, prazo=COALESCE(:prazo, prazo),
+                   relevancia=:relevancia, relevante=:relevante, do_senai=:do_senai,
+                   trecho_pdf=COALESCE(:trecho_pdf, trecho_pdf), ultimo_visto=:agora
+                   WHERE chave=:chave""",
+                dados,
+            )
+            return False
+        con.execute(
+            """INSERT INTO editais (chave, fonte, id_externo, titulo, objeto, unidade,
+               url, situacao, tipo, data_publicacao, prazo, relevancia, relevante,
+               do_senai, trecho_pdf, primeiro_visto, ultimo_visto)
+               VALUES (:chave, :fonte, :id_externo, :titulo, :objeto, :unidade,
+               :url, :situacao, :tipo, :data_publicacao, :prazo, :relevancia, :relevante,
+               :do_senai, :trecho_pdf, :agora, :agora)""",
+            dados,
+        )
+        return True
+
+
+def marcar_notificados(chaves: list[str]):
+    with conectar() as con:
+        con.executemany(
+            "UPDATE editais SET notificado = 1 WHERE chave = ?", [(c,) for c in chaves]
+        )
+
+
+def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
+           apenas_senai=False, limite: int = 500) -> list[dict]:
+    where, params = [], []
+    if q:
+        where.append("(titulo || ' ' || COALESCE(objeto,'') || ' ' || COALESCE(unidade,'')) LIKE ?")
+        params.append(f"%{q}%")
+    if apenas_relevantes:
+        where.append("relevante = 1")
+    if apenas_abertos:
+        where.append("(prazo IS NULL OR prazo >= date('now', 'localtime'))")
+    if apenas_senai:
+        where.append("do_senai = 1")
+    sql = "SELECT * FROM editais"
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += """ ORDER BY CASE
+                 WHEN prazo IS NULL THEN 1
+                 WHEN prazo < date('now', 'localtime') THEN 2
+                 ELSE 0 END,
+               prazo, primeiro_visto DESC LIMIT ?"""
+    params.append(limite)
+    with conectar() as con:
+        return [dict(r) for r in con.execute(sql, params)]
+
+
+def resumo() -> dict:
+    """Números para a frase do topo do painel."""
+    with conectar() as con:
+        r = con.execute(
+            """SELECT COUNT(*) AS total,
+                      COALESCE(SUM(relevante), 0) AS relevantes,
+                      COALESCE(SUM(relevante AND do_senai), 0) AS relevantes_senai,
+                      COALESCE(SUM(relevante AND prazo IS NOT NULL), 0) AS com_prazo,
+                      COALESCE(SUM(relevante AND replace(primeiro_visto, 'T', ' ')
+                                   >= datetime('now', 'localtime', '-2 days')), 0) AS novos,
+                      MIN(data_publicacao) AS publicacao_de,
+                      MAX(data_publicacao) AS publicacao_ate
+               FROM editais"""
+        ).fetchone()
+        return dict(r)
+
+
+def registrar_execucao(inicio: str, fim: str, encontrados: int, novos: int, erros: list[str]):
+    with conectar() as con:
+        con.execute(
+            "INSERT INTO execucoes (inicio, fim, encontrados, novos, erros) VALUES (?,?,?,?,?)",
+            (inicio, fim, encontrados, novos, "\n".join(erros) or None),
+        )
+
+
+def ultima_execucao() -> dict | None:
+    with conectar() as con:
+        r = con.execute("SELECT * FROM execucoes ORDER BY id DESC LIMIT 1").fetchone()
+        return dict(r) if r else None

@@ -1,0 +1,80 @@
+# Configuração do monitor de editais SENAI-MG
+# Edite este arquivo para mudar fontes, palavras-chave e frequência.
+
+coleta:
+  intervalo_horas: 12        # frequência da coleta automática
+  timeout_segundos: 60       # limite de cada operação de rede
+  tempo_limite_segundos: 120 # limite da coleta inteira; ao estourar, para e guarda o que já coletou
+  ler_pdfs: true             # baixa PDFs encontrados e lê as primeiras páginas
+  max_paginas_pdf: 10
+
+filtro:
+  # Termos que indicam que o edital é para consultoria/instrutoria PJ.
+  # Escreva sem acento e em minúsculas; o texto é normalizado antes da comparação.
+  termos_relevantes:
+    - credenciamento
+    - chamamento publico
+    - consultoria
+    - consultor
+    - instrutoria
+    - instrutor
+    - pessoa juridica
+    - pessoas juridicas
+    - cadastro de consultores
+    - prestacao de servicos tecnicos
+  # Se algum destes aparecer, o edital é descartado como irrelevante.
+  termos_excluir:
+    - aquisicao de equipamentos
+    - material de consumo
+    - obra de engenharia
+    - generos alimenticios
+  # Quantos termos relevantes distintos precisam aparecer.
+  relevancia_minima: 1
+  # Usado para marcar o que é do SENAI (o portal da FIEMG mistura SESI, IEL etc.)
+  termos_orgao:
+    - senai
+
+diagnostico:
+  tempo_limite_segundos: 180
+
+fontes:
+  # Coletor principal: usa o serviço JSON do próprio portal (mesmos dados das
+  # tabelas, com datas e paginação). Mesmo nome da fonte abaixo, para não
+  # duplicar editais já salvos por ela.
+  - tipo: fiemg_api
+    nome: Portal de Compras FIEMG
+    url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
+    ativo: true
+    # mural = processos (inclui credenciamentos); chamamentos e rfis = tela
+    # "Edital simplificado" (vazias em 27/09/2026, mas consultadas por garantia)
+    listas: [mural, chamamentos, rfis]
+    max_registros: 200       # quantos processos mais recentes do mural ler
+    por_pagina: 50
+
+  # Alternativa: lê as tabelas do HTML. Use se o serviço JSON mudar.
+  - tipo: fiemg_paradigma
+    nome: Portal de Compras FIEMG
+    url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
+    ativo: false
+    # Textos de links que o coletor tenta clicar para carregar listas completas.
+    # Ajuste depois de rodar scripts/diagnostico_fiemg.py.
+    # Botões confirmados no diagnóstico de 27/09/2026 (os "encerrados" e
+    # "componentes do cadastro" foram deixados de fora de propósito).
+    # Obs.: nessa data os botões existiam mas estavam ocultos (listas vazias).
+    expandir:
+      - Ver todos os editais de cadastro em andamento
+      - Ver todas as RFIs em andamento
+
+  - tipo: pagina_links
+    nome: FIEMG credenciamento de consultores (IEL)
+    url: https://www.fiemg.com.br/area-de-interesse/capacitacao-empresarial/credenciamento-de-consultores/
+    ativo: true             # ative se quiser acompanhar também o IEL-MG
+    unidade: IEL-MG
+
+  - tipo: demo
+    nome: Dados de exemplo
+    ativo: false             # ative só para testar a interface sem internet
+
+alertas:
+  telegram: false            # requer TELEGRAM_TOKEN e TELEGRAM_CHAT_ID no .env
+  email: false               # requer variáveis SMTP_* no .env
