@@ -78,12 +78,14 @@ SGF_HTML = """<!doctype html><html><body>
         onchange="location.search = '?uf=' + this.value">
   <option>Todos</option><option>MG</option><option>RJ</option><option>SP</option>
 </select>
-<table id="ctl00_cphConteudo_gvEdital">
+<table><tr><td>layout do site, com a grade dentro</td></tr><tr><td>
+<table>  <!-- como no site real: a grade não tem id -->
   <tr><th>UF<br>Todos</th><th>CÓDIGO</th><th>TÍTULO</th><th>STATUS</th>
       <th>DATA DA PUBLICAÇÃO</th><th>DATA DO RESULTADO</th><th></th></tr>
   {linhas}
-  <tr><td colspan="7">{paginacao}</td></tr>
-</table></body></html>"""
+  <tr><td colspan="7"><table><tr><td>1</td><td>2</td><td>3</td><td>{paginacao}</td></tr>
+  </table></td></tr>  <!-- paginação do ASP.NET: tabela dentro da grade -->
+</table></td></tr></table></body></html>"""
 
 
 def linha_sgf(uf, codigo, titulo):

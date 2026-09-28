@@ -27,14 +27,29 @@ VALIDADE_CACHE = 30 * 60  # segundos: cobre as fontes de uma mesma coleta
 
 _cache: dict[str, tuple[float, list[dict]]] = {}
 
+# A grade de editais: no site real a <table> vem sem id (diagnóstico de
+# 28/09/2026), então é achada pelo próprio cabeçalho ("CÓDIGO"). O layout usa
+# tabelas por fora e a paginação do ASP.NET é outra tabela por dentro, por isso
+# só contam as células que pertencem à própria grade.
+JS_GRADE = """
+() => [...document.querySelectorAll('table')].find(t =>
+  [...t.querySelectorAll('th')].some(th => th.closest('table') === t
+    && /^C[ÓO]DIGO/i.test((th.innerText || '').trim()))) || null
+"""
+JS_TEXTO_GRADE = f"() => {{ const t = ({JS_GRADE})(); return t ? t.innerText : null; }}"
+
 # Linhas da grade: células visíveis e links que não são postback
-JS_LINHAS = """
-tab => [...tab.querySelectorAll('tr')].map(tr => ({
-  th: [...tr.querySelectorAll('th')].map(c => (c.innerText || '').split('\\n')[0].trim()),
-  td: [...tr.querySelectorAll('td')].map(c => (c.innerText || '').trim()),
-  links: [...tr.querySelectorAll('a[href]')].map(a => a.href)
-           .filter(h => h && !h.startsWith('javascript')),
-}))
+JS_LINHAS = f"""
+() => {{
+  const tab = ({JS_GRADE})();
+  if (!tab) return null;
+  return [...tab.querySelectorAll('tr')].filter(tr => tr.closest('table') === tab).map(tr => ({{
+    th: [...tr.querySelectorAll('th')].map(c => (c.innerText || '').split('\\n')[0].trim()),
+    td: [...tr.querySelectorAll('td')].map(c => (c.innerText || '').trim()),
+    links: [...tr.querySelectorAll('a[href]')].map(a => a.href)
+             .filter(h => h && !h.startsWith('javascript')),
+  }}));
+}}
 """
 
 
@@ -100,29 +115,26 @@ class ColetorSebraeSgf(Coletor):
             try:
                 self.progresso.passo("Abrindo o SGF", 0, max_paginas)
                 page.goto(url, wait_until="networkidle", timeout=self.timeout_ms())
-                try:  # a lista chega depois do carregamento da página
-                    page.wait_for_selector("table[id$='gvEdital']", timeout=30000)
+                try:  # a lista pode chegar depois do carregamento da página
+                    page.wait_for_function(JS_TEXTO_GRADE, timeout=30000)
                 except Exception:
                     pass  # o erro abaixo mostra o texto da página
                 for pagina in range(1, max_paginas + 1):
                     self.progresso.passo(f"Página {pagina}", pagina, max_paginas)
-                    grade = page.query_selector("table[id$='gvEdital']")
-                    if not grade:
+                    atuais = page.evaluate(JS_LINHAS)
+                    if atuais is None:
                         texto = " ".join(page.inner_text("body").split())[:300]
                         raise RuntimeError(f"a lista de editais do SGF não apareceu: {texto}")
-                    atuais = grade.evaluate(JS_LINHAS)
                     linhas += atuais
                     proxima = page.locator("a[href*='ibtnNext']")
                     if not proxima.count():
                         break
-                    antes = grade.inner_text()
+                    antes = page.evaluate(JS_TEXTO_GRADE)
                     proxima.first.click(timeout=self.timeout_ms())
                     try:  # postback: completo ou parcial (UpdatePanel); espera a grade mudar
                         page.wait_for_function(
-                            """antes => {
-                                 const t = document.querySelector("table[id$='gvEdital']");
-                                 return t && t.innerText !== antes;
-                               }""", arg=antes, timeout=20000)
+                            f"antes => {{ const t = ({JS_TEXTO_GRADE})(); return t && t !== antes; }}",
+                            arg=antes, timeout=20000)
                     except Exception:
                         log.info("SGF: a página %d não mudou; fim da lista", pagina + 1)
                         break
