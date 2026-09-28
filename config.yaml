@@ -28,6 +28,9 @@ filtro:
     - material de consumo
     - obra de engenharia
     - generos alimenticios
+    - MANUTENÇÃO
+    - UNIFORMES
+    - DIREÇÃO DEFENSIVA
   # Quantos termos relevantes distintos precisam aparecer.
   relevancia_minima: 1
   # Usado para marcar o que é do SENAI (os portais das federações misturam SESI, IEL etc.)
