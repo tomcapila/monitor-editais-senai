@@ -10,6 +10,17 @@ def normalizar(texto: str) -> str:
     return " ".join(texto.lower().split())
 
 
+# Situações de processo fechado (em ASCII, minúsculas: servem também no SQL
+# de db.listar e no painel). Ex.: "Encerrado/Concluído" na transparência do SENAI-SP.
+SITUACOES_ENCERRADAS = ("encerrad", "conclu", "cancelad", "revogad", "desert",
+                        "fracassad", "anulad")
+
+
+def encerrado(situacao: str) -> bool:
+    texto = normalizar(situacao)
+    return any(s in texto for s in SITUACOES_ENCERRADAS)
+
+
 def avaliar(ed: Edital, cfg: dict) -> Edital:
     """Preenche relevancia, relevante e do_senai a partir do config."""
     texto = normalizar(ed.texto_busca())

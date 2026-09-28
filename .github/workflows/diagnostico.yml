@@ -15,14 +15,18 @@ on:
         description: "URLs de API consultadas direto, separadas por espaço (vazio = API de transparência do SENAI-SP)"
         required: false
         default: ""
-  # Também roda quando o próprio diagnóstico muda num branch de trabalho do
-  # Claude, porque "Run workflow" só aparece depois que o arquivo chega ao main.
+  # Também roda quando o diagnóstico ou os coletores mudam num branch de
+  # trabalho do Claude, porque "Run workflow" só aparece depois que o arquivo
+  # chega ao main.
   push:
     branches: ["claude/**"]
     paths:
       - .github/workflows/diagnostico.yml
       - app/diagnostico.py
+      - app/coletores/**
+      - config.yaml
       - scripts/diagnostico_portais.py
+      - scripts/testar_fontes.py
 
 permissions:
   contents: read
@@ -69,6 +73,11 @@ jobs:
           set -f
           python scripts/diagnostico_portais.py --todos-links ${URLS:-$URLS_PADRAO} \
             --api ${APIS:-$APIS_PADRAO}
+
+      # Roda os coletores de verdade (sem banco) e mostra o que cada fonte trouxe
+      - name: Testar as fontes do config.yaml
+        if: always()
+        run: python scripts/testar_fontes.py
 
       - uses: actions/upload-artifact@v4
         if: always()

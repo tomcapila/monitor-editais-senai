@@ -279,6 +279,9 @@ function ehNovo(e) {
 let estatico = null;
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
+// Mesmas situações de processo fechado de app/filtro.py
+const ENCERRADO = /encerrad|conclu|cancelad|revogad|desert|fracassad|anulad/;
+
 // Mesmos filtros e ordem de db.listar()
 function listarEstatico({ q, uf, relevantes, abertos, senai }) {
   const h = hojeISO(), busca = normTexto(q);
@@ -286,7 +289,7 @@ function listarEstatico({ q, uf, relevantes, abertos, senai }) {
   return estatico.editais
     .filter(e => (!busca || normTexto(`${e.titulo} ${e.objeto || ""} ${e.unidade || ""}`).includes(busca))
               && (!relevantes || e.relevante)
-              && (!abertos || !e.prazo || e.prazo >= h)
+              && (!abertos || ((!e.prazo || e.prazo >= h) && !ENCERRADO.test(normTexto(e.situacao))))
               && (!senai || e.do_senai)
               && (!uf || e.uf === uf))
     .sort((a, b) => grupo(a) - grupo(b)

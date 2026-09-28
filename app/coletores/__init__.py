@@ -11,6 +11,9 @@ def criar_coletor(fonte: dict, config: dict, progresso: Progresso | None = None)
     if tipo == "fiemg_paradigma":
         from .fiemg_paradigma import ColetorFiemgParadigma
         return ColetorFiemgParadigma(fonte, config, progresso)
+    if tipo == "sistema_transparencia":
+        from .sistema_transparencia import ColetorSistemaTransparencia
+        return ColetorSistemaTransparencia(fonte, config, progresso)
     if tipo == "pagina_links":
         from .pagina_links import ColetorPaginaLinks
         return ColetorPaginaLinks(fonte, config, progresso)

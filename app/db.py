@@ -6,6 +6,7 @@ from datetime import datetime
 
 from .config import DB_PATH
 from .coletores.base import Edital
+from .filtro import SITUACOES_ENCERRADAS
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS editais (
@@ -129,6 +130,8 @@ def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
         where.append("relevante = 1")
     if apenas_abertos:
         where.append("(prazo IS NULL OR prazo >= date('now', 'localtime'))")
+        for s in SITUACOES_ENCERRADAS:
+            where.append(f"lower(COALESCE(situacao, '')) NOT LIKE '%{s}%'")
     if apenas_senai:
         where.append("do_senai = 1")
     if uf:

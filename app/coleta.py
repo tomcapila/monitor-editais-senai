@@ -11,7 +11,7 @@ from datetime import datetime
 from . import alertas, db
 from .coletores import criar_coletor
 from .config import carregar_config
-from .filtro import avaliar
+from .filtro import avaliar, encerrado
 from .pdf_utils import achar_prazo, extrair_texto_pdf
 from .progresso import Progresso, TempoEsgotado
 
@@ -76,7 +76,9 @@ def executar_coleta() -> dict:
                     progresso.passo(f"Edital {n} de {len(editais)}", n - 1, len(editais))
                     encontrados += 1
                     ed.uf = ed.uf or fonte.get("uf", "")
-                    eh_pdf = ed.url.lower().split("?")[0].endswith(".pdf")
+                    # ".pdf" no caminho ou no fim do endereço (ex.: DocumentosSap?...&name=x.pdf)
+                    url = ed.url.lower().split("#")[0]
+                    eh_pdf = url.split("?")[0].endswith(".pdf") or url.endswith(".pdf")
                     if opts.get("ler_pdfs") and eh_pdf and not db.existe(ed.chave):
                         progresso.passo(f"Lendo PDF do edital {n} de {len(editais)}",
                                         n - 1, len(editais))
@@ -88,7 +90,7 @@ def executar_coleta() -> dict:
                     avaliar(ed, config.get("filtro", {}))
                     if db.salvar(ed, carga):
                         novos += 1
-                        if ed.relevante and not carga:
+                        if ed.relevante and not carga and not encerrado(ed.situacao):
                             para_alertar.append(ed)
         except TempoEsgotado as e:
             # o que já foi salvo fica; os alertas abaixo ainda são enviados

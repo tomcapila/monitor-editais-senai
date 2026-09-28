@@ -1,7 +1,7 @@
-# Monitor de editais SENAI (MG, RJ)
+# Monitor de editais SENAI (MG, RJ, SP)
 
 Coleta editais e chamamentos públicos dos portais de compras da FIEMG (MG)
-e da Firjan (RJ),
+e da Firjan (RJ) e da transparência do SENAI-SP,
 filtra os que interessam para consultoria/instrutoria PJ, guarda num SQLite,
 mostra num painel HTML e avisa por Telegram ou e-mail quando surge algo novo.
 
@@ -24,11 +24,13 @@ app/
     base.py                  modelo Edital + classe base
     paradigma_api.py         portais Paradigma (FIEMG e Firjan) pelo serviço JSON (padrão)
     fiemg_paradigma.py       Portal de Compras FIEMG lendo as tabelas do HTML (alternativa)
+    sistema_transparencia.py API de licitações da transparência do SENAI-SP
     pagina_links.py          páginas simples com links/PDFs (modelo p/ outros estados)
     demo.py                  dados fictícios para testar a interface
 static/index.html            painel
 scripts/diagnostico_fiemg.py diagnóstico pelo terminal (navegador visível)
 scripts/diagnostico_portais.py diagnóstico de várias URLs, com relatório no terminal
+scripts/testar_fontes.py     roda os coletores sem gravar e mostra o que trouxeram
 .github/workflows/coleta.yml coleta agendada + publicação no GitHub Pages
 .github/workflows/diagnostico.yml diagnóstico de portais no GitHub Actions
 ```
@@ -120,6 +122,13 @@ O GitHub pode pausar workflows agendados de repositórios sem atividade por
   consulta mesmo assim.
 - `max_registros: 200` cobre cerca de duas semanas de processos na FIEMG. Na
   Firjan o ritmo ainda não foi medido. Aumente se o monitor ficar dias desligado.
+- SENAI-SP: a API de transparência não traz prazo nem link por processo. O
+  link é a página de transparência, ou o PDF do edital quando ela o lista
+  (só os processos mais recentes aparecem lá). "Esconder encerrados" usa a
+  situação que a API informa ("Encerrado/Concluído").
+- SENAI-SP: o portal de fornecedores (editais.sesisenaisp.org.br, SAP) não
+  é consultado, porque exige preencher a busca a cada consulta. A API cobre
+  os mesmos processos publicados na transparência.
 - Na Firjan, o link "Abrir edital" usa o mesmo formato da FIEMG
   (`Mural.aspx?nNmTela=E&nCdProcesso=...`), que ainda não foi conferido
   abrindo um processo real.
@@ -141,10 +150,13 @@ da página. Em portais Paradigma (endereço com `Mural.aspx`, como FIEMG e
 Firjan), ele também faz as mesmas consultas do coletor `paradigma_api` e mostra
 os editais que sairiam delas. Os arquivos ficam em `diagnostico/portais/`.
 
+Para conferir as fontes do `config.yaml` contra os portais reais sem mexer no
+banco, rode `python scripts/testar_fontes.py` (ou passe nomes de fontes).
+
 Sem Python local, use **Actions > Diagnóstico de portais > Run workflow**.
 Deixe as URLs em branco para diagnosticar os portais de SP e RJ. O relatório
-sai no log do passo "Diagnosticar" e os arquivos ficam no artefato
-`diagnostico` da execução.
+sai no log do passo "Diagnosticar", o teste das fontes no passo seguinte, e
+os arquivos ficam no artefato `diagnostico` da execução.
 
 ## Adicionar outro estado
 

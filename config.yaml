@@ -70,6 +70,20 @@ fontes:
     # frente ("SENAI - IST AUTOMAÇÃO") para o painel e o filtro "Só SENAI"
     apelido_na_unidade: true
 
+  # SENAI-SP: API pública do Sistema Transparência, a mesma dos botões
+  # "Salvar em XLSX" da página de transparência (diagnóstico de 28/09/2026).
+  # Um processo aberto não reaparece na lista do ano seguinte: 'anos' diz
+  # quantos anos consultar (o atual e os anteriores).
+  - tipo: sistema_transparencia
+    nome: Transparência SENAI-SP
+    uf: SP
+    # página pública: link dos processos e, quando ela lista, o PDF do edital
+    url: https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
+    departamento: SENAI-SP
+    entidade: SENAI
+    anos: 2
+    ativo: true
+
   # Alternativa para a FIEMG: lê as tabelas do HTML. Use se o serviço JSON mudar.
   - tipo: fiemg_paradigma
     nome: Portal de Compras FIEMG
