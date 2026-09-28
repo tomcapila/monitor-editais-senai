@@ -47,6 +47,13 @@ def api_editais(q: str = "", relevantes: bool = True, abertos: bool = True,
     return db.listar(q, relevantes, abertos, senai, uf=uf)
 
 
+@app.get("/api/estados")
+def api_estados(q: str = "", relevantes: bool = True, abertos: bool = True,
+                senai: bool = False):
+    """Contagem por estado com os filtros atuais (menos o de estado)."""
+    return db.contar_por_uf(q, relevantes, abertos, senai)
+
+
 @app.get("/api/resumo")
 def api_resumo(desde: str | None = None):
     return db.resumo(desde)

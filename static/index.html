@@ -290,15 +290,20 @@ const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${Strin
 const ENCERRADO = /encerrad|conclu|cancelad|revogad|desert|fracassad|anulad/;
 
 // Mesmos filtros e ordem de db.listar()
-function listarEstatico({ q, uf, relevantes, abertos, senai }) {
+function filtrarEstatico({ q, uf, relevantes, abertos, senai }) {
   const h = hojeISO(), busca = normTexto(q);
-  const grupo = e => !e.prazo ? 1 : e.prazo < h ? 2 : 0;
   return estatico.editais
     .filter(e => (!busca || normTexto(`${e.titulo} ${e.objeto || ""} ${e.unidade || ""}`).includes(busca))
               && (!relevantes || e.relevante)
               && (!abertos || ((!e.prazo || e.prazo >= h) && !ENCERRADO.test(normTexto(e.situacao))))
               && (!senai || e.do_senai)
-              && (!uf || e.uf === uf))
+              && (!uf || e.uf === uf));
+}
+
+function listarEstatico(filtros) {
+  const h = hojeISO();
+  const grupo = e => !e.prazo ? 1 : e.prazo < h ? 2 : 0;
+  return filtrarEstatico(filtros)
     .sort((a, b) => grupo(a) - grupo(b)
                  || (a.prazo || "").localeCompare(b.prazo || "")
                  || (b.primeiro_visto || "").localeCompare(a.primeiro_visto || ""))
@@ -442,8 +447,16 @@ function guardarFiltros(f) {
   try { localStorage.setItem("filtros", JSON.stringify(f)); } catch { /* segue sem lembrar */ }
 }
 
-// Botões de estado com a contagem de processos coletados. Os estados
-// monitorados aparecem sempre, mesmo com zero (ex.: a fonte falhou).
+// Mesmos números de db.contar_por_uf(): cada estado com os filtros atuais
+function contarEstatico(filtros) {
+  const c = {};
+  for (const e of filtrarEstatico({ ...filtros, uf: "" })) if (e.uf) c[e.uf] = (c[e.uf] || 0) + 1;
+  return c;
+}
+
+// Botões de estado com a contagem de processos que passam pelos outros
+// filtros (busca, relevantes, encerrados, SENAI), atualizada a cada mudança.
+// Os estados monitorados aparecem sempre, mesmo com zero.
 const ESTADOS = ["MG", "RJ", "SP"];
 let ufEscolhida = "";
 let contagemUfs = {};
@@ -468,8 +481,12 @@ async function carregar() {
     senai: $("senai").checked,
   };
   guardarFiltros(filtros);
-  const dados = estatico ? listarEstatico(filtros)
-    : await api("/api/editais?" + new URLSearchParams(filtros));
+  const semUf = { ...filtros };
+  delete semUf.uf;
+  const [dados, porUf] = estatico ? [listarEstatico(filtros), contarEstatico(filtros)]
+    : await Promise.all([api("/api/editais?" + new URLSearchParams(filtros)),
+                         api("/api/estados?" + new URLSearchParams(semUf))]);
+  preencherEstados(porUf);
   $("contagem").textContent = `${dados.length} ${dados.length === 1 ? "processo" : "processos"}`;
   const lista = $("lista");
   lista.classList.toggle("desenhar", primeiraCarga);
@@ -485,7 +502,6 @@ async function carregarResumo() {
   const r = estatico ? resumoEstatico()
     : await api("/api/resumo?" + new URLSearchParams(visitaAnterior ? { desde: visitaAnterior } : {}));
   $("tentar").hidden = true;
-  preencherEstados(r.ufs);
   if (!r.total) {
     $("resumo").textContent = "Nenhum processo coletado ainda.";
     $("resumo2").textContent = "Clique em Coletar agora para buscar nos portais de compras.";

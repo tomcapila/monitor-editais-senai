@@ -105,3 +105,7 @@ def test_filtro_por_estado(config_demo):
         rj = cliente.get("/api/editais", params={**todos, "uf": "RJ"}).json()
         assert len(rj) == 3 and {e["uf"] for e in rj} == {"RJ"}
         assert cliente.get("/api/resumo").json()["ufs"] == {"MG": 3, "RJ": 3}
+        # os números dos botões acompanham os outros filtros
+        assert cliente.get("/api/estados", params=todos).json() == {"MG": 3, "RJ": 3}
+        assert cliente.get("/api/estados").json() == {"MG": 2, "RJ": 2}  # só relevantes
+        assert cliente.get("/api/estados", params={"q": "instrutoria"}).json() == {"MG": 1, "RJ": 1}
