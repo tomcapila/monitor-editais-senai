@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
-from app.coletores import sebrae_canal
+from app.coletores import sebrae_canal, sebrae_sgf
 from app.coletores.sebrae_canal import ColetorSebraeCanal, do_estado, registro_para_edital
 from app.coletores.sebrae_one import ColetorSebraeOne, editais_para_itens
 from app.coletores.sebrae_sgf import ColetorSebraeSgf
@@ -113,20 +113,21 @@ class Sites(BaseHTTPRequestHandler):
             return self._responder(CANAL_HTML)
         if url.path == "/portalcf/Licitacoes/GetLicitacoesGrid":
             p = int(q["p"][0])
-            regs = CANAL_REGS[:2] if p == 1 else CANAL_REGS[2:]
+            # como o site real: a lista inteira de uma vez (o ">" não pede de novo)
+            regs = CANAL_REGS if self.server.canal_inteiro else (
+                CANAL_REGS[:2] if p == 1 else CANAL_REGS[2:])
             return self._responder(json.dumps({"sEcho": "1", "aaData": regs}),
                                    "application/json")
         if url.path == "/sgf/Home/":
-            uf, pag = q.get("uf", [""])[0], q.get("p", ["1"])[0]
-            if uf != "RJ":  # sem filtro: editais de vários estados
-                linhas = linha_sgf("SC", "SC20250002", "Credenciamento SC")
-                paginacao = ""
-            elif pag == "1":
-                linhas = linha_sgf("RJ", "RJ20260001", "Consultoria e instrutoria RJ")
-                paginacao = ("<a href=\"javascript:location.search='?uf=RJ&p=2';void(0)"
+            # lista nacional de editais abertos, 2 páginas
+            if q.get("p", ["1"])[0] == "1":
+                linhas = (linha_sgf("SC", "SC20250002", "Credenciamento SC")
+                          + linha_sgf("RJ", "RJ20260001", "Consultoria e instrutoria RJ"))
+                paginacao = ("<a href=\"javascript:location.search='?p=2';void(0)"
                              "//ibtnNext\">próxima</a>")
             else:
-                linhas = linha_sgf("RJ", "RJ20250003", "Educação empreendedora RJ")
+                linhas = (linha_sgf("RJ", "RJ20250003", "Educação empreendedora RJ")
+                          + linha_sgf("SP", "SP20260001", "SOMA Sebrae SP"))
                 paginacao = ""
             return self._responder(SGF_HTML.replace("{linhas}", linhas)
                                    .replace("{paginacao}", paginacao))
@@ -136,13 +137,19 @@ class Sites(BaseHTTPRequestHandler):
 @pytest.fixture
 def sites():
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Sites)
+    srv.canal_inteiro = False
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{srv.server_port}"
+    yield f"http://127.0.0.1:{srv.server_port}", srv
     srv.shutdown()
 
 
-def test_sebrae_one_pela_api(sites):
-    fonte = {"nome": "Sebrae MG - credenciamento", "api": f"{sites}/one/api"}
+@pytest.fixture
+def base(sites):
+    return sites[0]
+
+
+def test_sebrae_one_pela_api(base):
+    fonte = {"nome": "Sebrae MG - credenciamento", "api": f"{base}/one/api"}
     itens = ColetorSebraeOne(fonte, CONFIG).coletar()
     assert len(itens) == 3
 
@@ -167,12 +174,15 @@ def test_canal_registro():
     assert registro_para_edital(CANAL_REGS[3], "Sebrae MG", "MG").unidade == "SEBRAE MINAS GERAIS"
 
 
-def test_canal_percorre_paginas_e_le_uma_vez(sites, monkeypatch):
+@pytest.mark.parametrize("inteiro", [True, False])
+def test_canal_le_a_lista_uma_vez(sites, monkeypatch, inteiro):
+    base, srv = sites
+    srv.canal_inteiro = inteiro  # lista inteira de uma vez, ou uma página por clique
     monkeypatch.setattr(sebrae_canal, "_cache", {})
-    url = f"{sites}/portalcf/Licitacoes"
+    url = f"{base}/portalcf/Licitacoes"
     mg = ColetorSebraeCanal({"nome": "Sebrae MG", "uf": "MG", "url": url,
                              "marcas": ["SEBRAE-MG", "MINAS GERAIS"]}, CONFIG).coletar()
-    assert sorted(e.id_externo for e in mg) == ["1", "4"]  # 4 está na página 2
+    assert sorted(e.id_externo for e in mg) == ["1", "4"]
     # a segunda fonte reaproveita a lista, sem abrir o site de novo
     monkeypatch.setattr(ColetorSebraeCanal, "_ler_grade", lambda *a: pytest.fail("leu de novo"))
     rj = ColetorSebraeCanal({"nome": "Sebrae RJ", "uf": "RJ", "url": url}, CONFIG).coletar()
@@ -181,8 +191,9 @@ def test_canal_percorre_paginas_e_le_uma_vez(sites, monkeypatch):
 
 # ---------- SGF
 
-def test_sgf_filtra_estado_e_avanca_paginas(sites):
-    fonte = {"nome": "Sebrae RJ - credenciamento", "uf": "RJ", "url": f"{sites}/sgf/Home/"}
+def test_sgf_percorre_lista_e_separa_estados(base, monkeypatch):
+    monkeypatch.setattr(sebrae_sgf, "_cache", {})
+    fonte = {"nome": "Sebrae RJ - credenciamento", "uf": "RJ", "url": f"{base}/sgf/Home/"}
     editais = {e.id_externo: e for e in ColetorSebraeSgf(fonte, CONFIG).coletar()}
     assert set(editais) == {"RJ20260001", "RJ20250003"}
     ed = editais["RJ20260001"]
@@ -190,3 +201,7 @@ def test_sgf_filtra_estado_e_avanca_paginas(sites):
     assert ed.url.endswith("/inscricao/login.aspx?Codigo=RJ20260001")
     assert ed.situacao == "Aberto" and ed.unidade == "Sebrae/RJ"
     assert ed.data_publicacao == date(2025, 9, 15)
+    # SP reaproveita a lista já lida
+    monkeypatch.setattr(ColetorSebraeSgf, "_ler_lista", lambda *a: pytest.fail("leu de novo"))
+    sp = ColetorSebraeSgf({**fonte, "nome": "Sebrae SP", "uf": "SP"}, CONFIG).coletar()
+    assert [e.id_externo for e in sp] == ["SP20260001"]

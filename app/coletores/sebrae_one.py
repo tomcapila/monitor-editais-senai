@@ -67,14 +67,21 @@ def editais_para_itens(editais: list[dict], fonte_nome: str) -> list[Edital]:
             pid = _texto(proc.get("id"))
             if not pid:
                 continue
+            # chamada reaberta: valem as datas da reabertura
+            reaberta = bool(proc.get("reabertura")) and proc.get("data_reabertura")
+            abertura = proc.get("data_reabertura") if reaberta else proc.get("data_abertura")
+            fechamento = (proc.get("data_fechamento_reabertura") if reaberta
+                          else proc.get("data_fechamento"))
+            dados = {**base}
+            if _texto(proc.get("status")):
+                dados["situacao"] = SITUACOES.get(_texto(proc["status"]), _texto(proc["status"]))
             itens.append(Edital(
                 id_externo=f"processo-{pid}",
                 titulo=f"{nome} · {_texto(proc.get('titulo'))}".rstrip(" ·"),
                 objeto=_texto(proc.get("descricao")) or _texto(ed.get("resumo")),
-                data_publicacao=_data(proc.get("data_inicio") or proc.get("created_at")
-                                      or ed.get("data_abertura")),
-                prazo=_data(proc.get("data_fim") or proc.get("data_fechamento")),
-                **base))
+                data_publicacao=_data(abertura or proc.get("created_at") or ed.get("data_abertura")),
+                prazo=_data(fechamento),
+                **dados))
     return itens
 
 
@@ -90,8 +97,8 @@ class ColetorSebraeOne(Coletor):
         editais = dados.get("data") if isinstance(dados, dict) else dados
         editais = [e for e in editais or [] if isinstance(e, dict)]
         processos = [p for e in editais for p in e.get("processos") or [] if isinstance(p, dict)]
-        log.info("%s: %d editais, %d chamadas; status %s; campos da chamada %s",
+        log.info("%s: %d editais, %d chamadas; status dos editais %s, das chamadas %s",
                  self.nome, len(editais), len(processos),
                  Counter(_texto(e.get("status")) for e in editais),
-                 sorted(processos[0]) if processos else [])
+                 Counter(_texto(p.get("status")) for p in processos))
         return editais_para_itens(editais, self.nome)

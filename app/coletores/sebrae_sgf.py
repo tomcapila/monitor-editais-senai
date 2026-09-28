@@ -4,13 +4,16 @@ Coletor do SGF, o Sistema de Gestão de Fornecedores do Sebrae
 credenciamento de consultoria e instrutoria. O Sebrae/RJ usa o SGF, e o SOMA
 do Sebrae-SP manda as inscrições para ele (diagnóstico de 28/09/2026).
 
-É um site ASP.NET WebForms: a lista (10 editais por vez) tem filtros de estado
-e de situação que recarregam a página. O coletor abre a página no Playwright,
-escolhe o estado (a situação já vem em "Aberto") e avança as páginas.
+É um site ASP.NET WebForms: a lista (10 editais por vez) já abre com a
+situação "Aberto" e todos os estados. Trocar o estado no filtro fez a lista
+sumir no teste de 28/09/2026, então o coletor percorre a lista nacional
+(poucas páginas: só editais abertos), separa os estados pela coluna UF e
+guarda o resultado para as outras fontes da mesma coleta.
 """
 from __future__ import annotations
 
 import logging
+import time
 
 from playwright.sync_api import sync_playwright
 
@@ -20,6 +23,9 @@ from .base import USER_AGENT, Coletor, Edital, parse_data
 log = logging.getLogger(__name__)
 
 URL_PADRAO = "https://sgf.sebrae.com.br/Home/"
+VALIDADE_CACHE = 30 * 60  # segundos: cobre as fontes de uma mesma coleta
+
+_cache: dict[str, tuple[float, list[dict]]] = {}
 
 # Linhas da grade: células visíveis e links que não são postback
 JS_LINHAS = """
@@ -72,33 +78,50 @@ class ColetorSebraeSgf(Coletor):
     def coletar(self) -> list[Edital]:
         uf = self.fonte["uf"]
         url = self.url or URL_PADRAO
-        max_paginas = int(self.fonte.get("max_paginas", 10))
-        editais: dict[str, Edital] = {}
+        editais = {ed.chave: ed
+                   for ed in linhas_para_editais(self._linhas(url), self.nome, uf, url)}
+        log.info("%s: %d editais", self.nome, len(editais))
+        return list(editais.values())
+
+    def _linhas(self, url: str) -> list[dict]:
+        guardado = _cache.get(url)
+        if guardado and time.monotonic() - guardado[0] < VALIDADE_CACHE:
+            return guardado[1]
+        linhas = self._ler_lista(url)
+        _cache[url] = (time.monotonic(), linhas)
+        return linhas
+
+    def _ler_lista(self, url: str) -> list[dict]:
+        max_paginas = int(self.fonte.get("max_paginas", 15))
+        linhas: list[dict] = []
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page(locale="pt-BR", user_agent=USER_AGENT)
             try:
                 self.progresso.passo("Abrindo o SGF", 0, max_paginas)
                 page.goto(url, wait_until="networkidle", timeout=self.timeout_ms())
-                self.progresso.passo(f"Filtrando {uf}", 0, max_paginas)
-                # a troca de estado recarrega a página (postback do ASP.NET)
-                with page.expect_navigation(wait_until="networkidle", timeout=self.timeout_ms()):
-                    page.select_option("select[id$='dropUF']", uf, timeout=self.timeout_ms())
                 for pagina in range(1, max_paginas + 1):
                     self.progresso.passo(f"Página {pagina}", pagina, max_paginas)
                     grade = page.query_selector("table[id$='gvEdital']")
                     if not grade:
-                        raise RuntimeError("a lista de editais do SGF não apareceu")
-                    antes = len(editais)
-                    for ed in linhas_para_editais(grade.evaluate(JS_LINHAS), self.nome, uf, url):
-                        editais[ed.chave] = ed
+                        texto = " ".join(page.inner_text("body").split())[:300]
+                        raise RuntimeError(f"a lista de editais do SGF não apareceu: {texto}")
+                    atuais = grade.evaluate(JS_LINHAS)
+                    linhas += atuais
                     proxima = page.locator("a[href*='ibtnNext']")
-                    if len(editais) == antes or not proxima.count():
+                    if not proxima.count():
                         break
-                    with page.expect_navigation(wait_until="networkidle",
-                                                timeout=self.timeout_ms()):
-                        proxima.first.click(timeout=self.timeout_ms())
+                    antes = grade.inner_text()
+                    proxima.first.click(timeout=self.timeout_ms())
+                    try:  # postback: completo ou parcial (UpdatePanel); espera a grade mudar
+                        page.wait_for_function(
+                            """antes => {
+                                 const t = document.querySelector("table[id$='gvEdital']");
+                                 return t && t.innerText !== antes;
+                               }""", arg=antes, timeout=20000)
+                    except Exception:
+                        log.info("SGF: a página %d não mudou; fim da lista", pagina + 1)
+                        break
             finally:
                 browser.close()
-        log.info("%s: %d editais", self.nome, len(editais))
-        return list(editais.values())
+        return linhas
