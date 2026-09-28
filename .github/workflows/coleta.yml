@@ -1,11 +1,14 @@
-# Coleta os editais duas vezes por dia e publica o painel no GitHub Pages.
+# Coleta os editais três vezes por dia e publica o painel no GitHub Pages.
 # O banco (editais.db) fica no branch "dados", reescrito a cada execução,
 # para lembrar o que já foi visto e só alertar sobre o que for novo.
 name: Coleta de editais
 
 on:
   schedule:
-    - cron: "0 9,21 * * *"   # 6h e 18h em Brasília (o GitHub usa UTC e pode atrasar alguns minutos)
+    # O cron do GitHub usa UTC: 9h, 15h e 21h UTC = 6h17, 12h17 e 18h17 em Brasília.
+    # Minuto 17 de propósito: no minuto 0 a fila do GitHub é maior e execuções
+    # agendadas atrasam ou são descartadas. A das 12h17 cobre uma que se perca.
+    - cron: "17 9,15,21 * * *"
   workflow_dispatch:          # botão "Run workflow" (e "Coletar agora" no painel)
 
 permissions:
