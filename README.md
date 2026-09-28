@@ -60,8 +60,9 @@ cp .env.example .env        # Windows: copy .env.example .env
 3. **Ative a fonte real.** Volte `demo` para `ativo: false`, `fiemg_paradigma`
    para `ativo: true`, apague `editais.db` e rode a coleta de novo.
 
-A primeira coleta real não dispara alertas (senão tudo viraria "novo").
-A partir da segunda, só o que for novo e relevante gera aviso.
+A primeira coleta de cada fonte não dispara alertas (senão tudo viraria
+"novo"). Isso vale também para uma fonte adicionada depois, como um estado
+novo. A partir da segunda coleta dela, só o que for novo e relevante gera aviso.
 
 ## Progresso e tempo limite
 
@@ -143,5 +144,6 @@ sai no log do passo "Diagnosticar" e os arquivos ficam no artefato
 
 Crie um módulo em `app/coletores/` herdando de `Coletor`, devolva uma lista de
 `Edital` em `coletar()`, registre o tipo em `app/coletores/__init__.py` e
-adicione a fonte no `config.yaml`. Para sites simples, `pagina_links` já pode
+adicione a fonte no `config.yaml` com o campo `uf` (sigla do estado, que
+aparece no painel e nos alertas). Para sites simples, `pagina_links` já pode
 servir sem código novo.

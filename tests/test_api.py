@@ -26,11 +26,12 @@ def test_api(config_demo):
         assert resumo["total"] == 3 and resumo["relevantes"] == 2 and resumo["com_prazo"] == 2
         # a primeira coleta é a carga inicial: o que ela trouxe não é "novo"
         assert resumo["novos"] == 0 and resumo["pos_carga"] == 0
-        assert resumo["carga_inicial"] == status["ultima"]["fim"]
+        assert all(e["da_carga"] == 1 and e["uf"] == "MG" for e in todos)
 
         # um processo relevante que chega depois conta como novo...
         with db.conectar() as con:
-            con.execute("UPDATE editais SET primeiro_visto = '2999-01-01T00:00:00' WHERE id_externo = 'demo-1'")
+            con.execute("UPDATE editais SET primeiro_visto = '2999-01-01T00:00:00', da_carga = 0"
+                        " WHERE id_externo = 'demo-1'")
         resumo = cliente.get("/api/resumo").json()
         assert resumo["novos"] == 1 and resumo["pos_carga"] == 1
         # ...mas não para quem visitou o painel depois da chegada dele

@@ -37,6 +37,7 @@ class Edital:
     id_externo: str = ""
     objeto: str = ""
     unidade: str = ""
+    uf: str = ""  # estado da fonte (MG, SP, RJ); vem do config.yaml
     situacao: str = ""
     tipo: str = ""
     data_publicacao: date | None = None

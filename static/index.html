@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Editais SENAI-MG</title>
+<title>Editais SENAI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
@@ -166,7 +166,7 @@
 <div class="wrap">
   <header>
     <div class="topo">
-      <h1>Editais SENAI-MG</h1>
+      <h1>Editais SENAI</h1>
       <button id="btnColetar" type="button">Coletar agora</button>
     </div>
     <div class="aviso" id="aviso" role="alert" hidden>
@@ -261,12 +261,11 @@ function lerVisitaAnterior() {
 }
 const visitaAnterior = lerVisitaAnterior();
 
-// O que veio na primeira coleta j\u00e1 estava no portal antes do monitor: nunca \u00e9 "novo".
-let cargaInicial = null;
-function ehNovo(primeiroVisto) {
-  if (!primeiroVisto || (cargaInicial && primeiroVisto <= cargaInicial)) return false;
-  return visitaAnterior ? primeiroVisto > visitaAnterior
-                        : Date.now() - new Date(primeiroVisto) < 48 * 3600 * 1000;
+// O que veio na primeira coleta de cada fonte j\u00e1 estava no portal antes do monitor: nunca \u00e9 "novo".
+function ehNovo(e) {
+  if (!e.primeiro_visto || e.da_carga) return false;
+  return visitaAnterior ? e.primeiro_visto > visitaAnterior
+                        : Date.now() - new Date(e.primeiro_visto) < 48 * 3600 * 1000;
 }
 
 /* ---------- Vers\u00e3o publicada (GitHub Pages): sem servidor, l\u00ea dados.json ---------- */
@@ -292,16 +291,14 @@ function listarEstatico({ q, relevantes, abertos, senai }) {
 // Mesmos n\u00fameros de db.resumo()
 function resumoEstatico() {
   const eds = estatico.editais, rel = eds.filter(e => e.relevante);
-  const carga = estatico.carga_inicial || "";
   const pubs = eds.map(e => e.data_publicacao).filter(Boolean).sort();
   return {
     total: eds.length,
     relevantes: rel.length,
     relevantes_senai: rel.filter(e => e.do_senai).length,
     com_prazo: rel.filter(e => e.prazo).length,
-    novos: rel.filter(e => ehNovo(e.primeiro_visto)).length,
-    pos_carga: eds.filter(e => (e.primeiro_visto || "") > carga).length,
-    carga_inicial: estatico.carga_inicial,
+    novos: rel.filter(ehNovo).length,
+    pos_carga: eds.filter(e => !e.da_carga).length,
     publicacao_de: pubs[0] || null,
     publicacao_ate: pubs[pubs.length - 1] || null,
   };
@@ -351,7 +348,7 @@ function itemEdital(e) {
       <div class="ident">
         <span class="codigo">${esc(codigo)}</span>
         ${e.unidade ? `<span class="unidade">${esc(e.unidade)}</span>` : ""}
-        ${ehNovo(e.primeiro_visto) ? `<span class="novo">Novo</span>` : ""}
+        ${ehNovo(e) ? `<span class="novo">Novo</span>` : ""}
       </div>
       <div class="corpo">
         ${soCodigo ? "" : `<h2>${grifar(e.titulo)}</h2>`}
@@ -450,11 +447,10 @@ async function carregar() {
 async function carregarResumo() {
   const r = estatico ? resumoEstatico()
     : await api("/api/resumo?" + new URLSearchParams(visitaAnterior ? { desde: visitaAnterior } : {}));
-  cargaInicial = r.carga_inicial;
   $("tentar").hidden = true;
   if (!r.total) {
     $("resumo").textContent = "Nenhum processo coletado ainda.";
-    $("resumo2").textContent = "Clique em Coletar agora para buscar no Portal de Compras da FIEMG.";
+    $("resumo2").textContent = "Clique em Coletar agora para buscar nos portais de compras.";
     return;
   }
   const n = r.relevantes, s = r.relevantes_senai;
@@ -718,7 +714,7 @@ const iniciar = seguro(async () => {
     const f = estatico || await api("/api/filtro");
     termos = f.termos_relevantes.map(t => [...t].map(normChar).join("")).filter(Boolean);
   } catch { termos = []; }  // sem grifo, mas o resto funciona
-  await carregarResumo();  // antes da lista: define a carga inicial usada no "Novo"
+  await carregarResumo();
   await carregar();
   if (estatico) {
     $("diag").hidden = true;  // o diagnóstico precisa do servidor local

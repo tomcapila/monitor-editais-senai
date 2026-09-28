@@ -53,7 +53,6 @@ def executar_coleta() -> dict:
     status = "ok"
     try:
         db.iniciar()
-        primeira_vez = db.vazio()  # não dispara alerta em massa na 1ª coleta
 
         try:
             for i, fonte in enumerate(fontes):
@@ -70,9 +69,13 @@ def executar_coleta() -> dict:
                     continue
 
                 progresso.fase(f"Processando: {fonte['nome']}", 2 * i + 1)
+                # 1ª coleta desta fonte (ex.: um estado novo): não dispara alerta
+                # em massa, nem com o banco já cheio de editais de outras fontes
+                carga = db.fonte_nova(fonte["nome"])
                 for n, ed in enumerate(editais, start=1):
                     progresso.passo(f"Edital {n} de {len(editais)}", n - 1, len(editais))
                     encontrados += 1
+                    ed.uf = ed.uf or fonte.get("uf", "")
                     eh_pdf = ed.url.lower().split("?")[0].endswith(".pdf")
                     if opts.get("ler_pdfs") and eh_pdf and not db.existe(ed.chave):
                         progresso.passo(f"Lendo PDF do edital {n} de {len(editais)}",
@@ -83,9 +86,9 @@ def executar_coleta() -> dict:
                         )
                         ed.prazo = ed.prazo or achar_prazo(ed.texto_extra)
                     avaliar(ed, config.get("filtro", {}))
-                    if db.salvar(ed):
+                    if db.salvar(ed, carga):
                         novos += 1
-                        if ed.relevante and not primeira_vez:
+                        if ed.relevante and not carga:
                             para_alertar.append(ed)
         except TempoEsgotado as e:
             # o que já foi salvo fica; os alertas abaixo ainda são enviados

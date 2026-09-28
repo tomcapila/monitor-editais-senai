@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     agendador.shutdown(wait=False)
 
 
-app = FastAPI(title="Monitor de editais SENAI-MG", lifespan=lifespan)
+app = FastAPI(title="Monitor de editais SENAI", lifespan=lifespan)
 diagnostico.SAIDA.mkdir(exist_ok=True)
 app.mount("/diagnostico-arquivos", StaticFiles(directory=diagnostico.SAIDA), name="diag")
 
