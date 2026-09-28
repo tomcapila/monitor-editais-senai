@@ -5,6 +5,7 @@ Também pode ser executado direto:  python -m app.coleta
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from datetime import datetime
 
@@ -27,6 +28,10 @@ def resumir_erro(e: Exception) -> str:
     Uma linha só por erro: o painel separa as fontes pelas quebras de linha.
     """
     codigo = getattr(getattr(e, "response", None), "status_code", None)
+    if not codigo:
+        # erros do Playwright só trazem o código no texto ("HTTP 403 em PesquisarProcessos")
+        m = re.search(r"\bHTTP (\d{3})\b", str(e))
+        codigo = int(m.group(1)) if m else None
     if codigo in (401, 403):
         return f"o site recusou o acesso (HTTP {codigo})"
     if codigo:
