@@ -38,12 +38,10 @@ env:
   URLS_PADRAO: >-
     https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
     https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
-    https://www.sp.senai.br/para-a-sua-empresa/licitacoes
-    https://prestacaocontastcu.sp.senai.br/
-  # API por trás dos botões "Salvar em XLSX" da transparência do SENAI-SP
+  # API de transparência do SENAI-SP (a mesma dos botões "Salvar em XLSX")
   APIS_PADRAO: >-
-    https://sistematransparenciaweb.com.br/api-licitacoes/publico/licitacoes/export?ano=2026&departamento=SENAI-SP&entidade=SENAI&formatoExportacao=XLSX
     https://sistematransparenciaweb.com.br/api-licitacoes/publico/licitacoes?ano=2026&departamento=SENAI-SP&entidade=SENAI
+    https://sistematransparenciaweb.com.br/api-licitacoes/publico/licitacoes?ano=2025&departamento=SENAI-SP&entidade=SENAI
 
 jobs:
   diagnosticar:

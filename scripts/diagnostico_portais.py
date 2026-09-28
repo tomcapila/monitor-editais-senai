@@ -48,6 +48,31 @@ def planilha(conteudo: bytes, max_linhas: int = 15) -> list[str]:
     return linhas
 
 
+PISTAS_JSON = ("credenciamento", "chamamento", "consultor", "instrutor", "instrutoria")
+
+
+def resumo_lista(dados: list) -> list[str]:
+    """Para uma lista de objetos JSON: campos, valores mais comuns dos campos
+    com poucos valores distintos e os itens que parecem de consultoria."""
+    from collections import Counter
+
+    itens = [d for d in dados if isinstance(d, dict)]
+    linhas = [f"  {len(dados)} itens; campos do primeiro: {sorted(itens[0]) if itens else []}"]
+    for campo in sorted({k for d in itens for k in d}):
+        valores = Counter(str(d.get(campo))[:60] for d in itens
+                          if not isinstance(d.get(campo), (list, dict)))
+        if 1 < len(valores) <= 40:
+            linhas.append(f"  {campo}: {valores.most_common(15)}")
+    achados = [d for d in itens
+               if any(p in json.dumps(d, ensure_ascii=False).lower() for p in PISTAS_JSON)]
+    linhas.append(f"  {len(achados)} itens citam {PISTAS_JSON}:")
+    for d in achados[:40]:
+        resumo = {k: (str(v)[:160] if not isinstance(v, (list, dict)) else f"[{len(v)}]")
+                  for k, v in d.items() if v not in ("", None)}
+        linhas.append(f"    {json.dumps(resumo, ensure_ascii=False)}")
+    return linhas
+
+
 def sondar(url: str, timeout: float = 60) -> str:
     """Consulta uma URL de API e descreve a resposta."""
     linhas = [f"=== API {url}"]
@@ -64,7 +89,9 @@ def sondar(url: str, timeout: float = 60) -> str:
     if "json" in tipo:
         try:
             dados = r.json()
-            linhas.append(json.dumps(dados, ensure_ascii=False, indent=1)[:6000])
+            if isinstance(dados, list):
+                linhas += resumo_lista(dados)
+            linhas.append(json.dumps(dados, ensure_ascii=False, indent=1)[:3000])
         except ValueError:
             linhas.append(r.text[:3000])
     elif r.content[:2] == b"PK":  # zip: XLSX (ODS não é lido)
