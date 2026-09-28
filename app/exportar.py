@@ -38,6 +38,7 @@ def exportar() -> dict:
     dados = {
         "gerado_em": datetime.now().isoformat(timespec="seconds"),
         "ultima": db.ultima_execucao(),
+        "carga_inicial": db.carga_inicial(),
         "termos_relevantes": filtro.get("termos_relevantes", []),
         "workflow_url": url_workflow(),
         "editais": editais,

@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app import db
 from app.coleta import executar_coleta
 from app.main import app
 
@@ -22,8 +23,19 @@ def test_api(config_demo):
         assert cliente.get("/").status_code == 200
 
         resumo = cliente.get("/api/resumo").json()
-        assert resumo["total"] == 3 and resumo["relevantes"] == 2
-        assert resumo["novos"] == 2 and resumo["com_prazo"] == 2
+        assert resumo["total"] == 3 and resumo["relevantes"] == 2 and resumo["com_prazo"] == 2
+        # a primeira coleta é a carga inicial: o que ela trouxe não é "novo"
+        assert resumo["novos"] == 0 and resumo["pos_carga"] == 0
+        assert resumo["carga_inicial"] == status["ultima"]["fim"]
+
+        # um processo relevante que chega depois conta como novo...
+        with db.conectar() as con:
+            con.execute("UPDATE editais SET primeiro_visto = '2999-01-01T00:00:00' WHERE id_externo = 'demo-1'")
+        resumo = cliente.get("/api/resumo").json()
+        assert resumo["novos"] == 1 and resumo["pos_carga"] == 1
+        # ...mas não para quem visitou o painel depois da chegada dele
+        resumo = cliente.get("/api/resumo", params={"desde": "2999-01-02T00:00:00"}).json()
+        assert resumo["novos"] == 0
 
         termos = cliente.get("/api/filtro").json()["termos_relevantes"]
         assert "consultoria" in termos

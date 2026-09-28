@@ -122,21 +122,37 @@ def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
         return [dict(r) for r in con.execute(sql, params)]
 
 
-def resumo() -> dict:
-    """Números para a frase do topo do painel."""
+def carga_inicial() -> str | None:
+    """Fim da primeira coleta que salvou algo. O que ela trouxe já existia no
+    portal antes do monitor, então não conta como novo."""
+    with conectar() as con:
+        return con.execute("SELECT MIN(fim) FROM execucoes WHERE novos > 0").fetchone()[0]
+
+
+def resumo(desde: str | None = None) -> dict:
+    """Números para a frase do topo do painel.
+
+    'desde' é a última visita do usuário (aaaa-mm-ddThh:mm:ss, hora local);
+    sem ela, "novo" vale para as últimas 48 horas.
+    """
+    carga = carga_inicial()
     with conectar() as con:
         r = con.execute(
             """SELECT COUNT(*) AS total,
                       COALESCE(SUM(relevante), 0) AS relevantes,
                       COALESCE(SUM(relevante AND do_senai), 0) AS relevantes_senai,
                       COALESCE(SUM(relevante AND prazo IS NOT NULL), 0) AS com_prazo,
-                      COALESCE(SUM(relevante AND replace(primeiro_visto, 'T', ' ')
-                                   >= datetime('now', 'localtime', '-2 days')), 0) AS novos,
+                      COALESCE(SUM(relevante AND primeiro_visto > COALESCE(:carga, '')
+                                   AND replace(primeiro_visto, 'T', ' ') > COALESCE(
+                                       replace(:desde, 'T', ' '),
+                                       datetime('now', 'localtime', '-2 days'))), 0) AS novos,
+                      COALESCE(SUM(primeiro_visto > COALESCE(:carga, '')), 0) AS pos_carga,
                       MIN(data_publicacao) AS publicacao_de,
                       MAX(data_publicacao) AS publicacao_ate
-               FROM editais"""
+               FROM editais""",
+            {"carga": carga, "desde": desde},
         ).fetchone()
-        return dict(r)
+        return {**dict(r), "carga_inicial": carga}
 
 
 def registrar_execucao(inicio: str, fim: str, encontrados: int, novos: int, erros: list[str]):

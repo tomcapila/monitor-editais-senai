@@ -48,8 +48,8 @@ def api_editais(q: str = "", relevantes: bool = True, abertos: bool = True,
 
 
 @app.get("/api/resumo")
-def api_resumo():
-    return db.resumo()
+def api_resumo(desde: str | None = None):
+    return db.resumo(desde)
 
 
 @app.get("/api/filtro")
