@@ -5,9 +5,9 @@ from .base import Coletor, Edital
 def criar_coletor(fonte: dict, config: dict, progresso: Progresso | None = None) -> Coletor:
     """Para adicionar outro estado: crie um módulo novo e registre o tipo aqui."""
     tipo = fonte["tipo"]
-    if tipo == "fiemg_api":
-        from .fiemg_api import ColetorFiemgApi
-        return ColetorFiemgApi(fonte, config, progresso)
+    if tipo in ("paradigma_api", "fiemg_api"):  # fiemg_api: nome antigo
+        from .paradigma_api import ColetorParadigmaApi
+        return ColetorParadigmaApi(fonte, config, progresso)
     if tipo == "fiemg_paradigma":
         from .fiemg_paradigma import ColetorFiemgParadigma
         return ColetorFiemgParadigma(fonte, config, progresso)

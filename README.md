@@ -1,6 +1,7 @@
-# Monitor de editais SENAI-MG (MVP)
+# Monitor de editais SENAI (MG, RJ)
 
-Coleta editais e chamamentos públicos do Portal de Compras da FIEMG,
+Coleta editais e chamamentos públicos dos portais de compras da FIEMG (MG)
+e da Firjan (RJ),
 filtra os que interessam para consultoria/instrutoria PJ, guarda num SQLite,
 mostra num painel HTML e avisa por Telegram ou e-mail quando surge algo novo.
 
@@ -21,7 +22,7 @@ app/
   exportar.py                gera o painel estático (site/) para o GitHub Pages
   coletores/
     base.py                  modelo Edital + classe base
-    fiemg_api.py             Portal de Compras FIEMG pelo serviço JSON do portal (padrão)
+    paradigma_api.py         portais Paradigma (FIEMG e Firjan) pelo serviço JSON (padrão)
     fiemg_paradigma.py       Portal de Compras FIEMG lendo as tabelas do HTML (alternativa)
     pagina_links.py          páginas simples com links/PDFs (modelo p/ outros estados)
     demo.py                  dados fictícios para testar a interface
@@ -107,16 +108,21 @@ O GitHub pode pausar workflows agendados de repositórios sem atividade por
 
 ## Limitações conhecidas
 
-- O coletor `fiemg_api` foi validado contra o portal real em 27/09/2026. Ele
+- O coletor `paradigma_api` foi validado contra o portal da FIEMG em 27/09/2026
+  e o da Firjan em 28/09/2026 (o tipo antigo `fiemg_api` continua aceito). Ele
   abre o mural no Playwright (o site passa pelo Cloudflare) e chama o serviço
   `WebService/Servicos.asmx/PesquisarProcessos` de dentro da página. Se o
   portal mudar, rode o diagnóstico e, se preciso, volte para `fiemg_paradigma`.
 - O mural não informa prazo de inscrição (o portal manda a data final vazia).
   O prazo costuma estar no PDF anexado ao processo, que ainda não é lido.
 - As listas de chamamentos e RFIs da tela "Edital simplificado" estavam vazias
-  no próprio portal em 27/09/2026; o coletor as consulta mesmo assim.
-- `max_registros: 200` cobre cerca de duas semanas de processos. Com coleta a
-  cada 12 horas isso sobra; aumente se o monitor ficar dias desligado.
+  nos dois portais (FIEMG em 27/09/2026, Firjan em 28/09/2026); o coletor as
+  consulta mesmo assim.
+- `max_registros: 200` cobre cerca de duas semanas de processos na FIEMG. Na
+  Firjan o ritmo ainda não foi medido. Aumente se o monitor ficar dias desligado.
+- Na Firjan, o link "Abrir edital" usa o mesmo formato da FIEMG
+  (`Mural.aspx?nNmTela=E&nCdProcesso=...`), que ainda não foi conferido
+  abrindo um processo real.
 - A detecção de prazo em PDF é heurística. Confira sempre no edital.
 - Mudanças no layout do portal quebram o coletor. Fique de olho nos erros
   mostrados no topo do painel.
@@ -132,7 +138,7 @@ python scripts/diagnostico_portais.py URL [URL ...]
 
 O relatório lista as tabelas, os links com cara de edital e as chamadas AJAX
 da página. Em portais Paradigma (endereço com `Mural.aspx`, como FIEMG e
-Firjan), ele também faz as mesmas consultas do coletor `fiemg_api` e mostra
+Firjan), ele também faz as mesmas consultas do coletor `paradigma_api` e mostra
 os editais que sairiam delas. Os arquivos ficam em `diagnostico/portais/`.
 
 Sem Python local, use **Actions > Diagnóstico de portais > Run workflow**.

@@ -83,11 +83,12 @@ def _carregar(page, url: str) -> str | None:
 
 
 def testar_paradigma(page) -> dict:
-    """Faz as mesmas chamadas do coletor fiemg_api de dentro da página e mostra
+    """Faz as mesmas chamadas do coletor paradigma_api de dentro da página e mostra
     o que ele montaria. Serve para saber se outro portal Paradigma (ex.: Firjan)
     responde igual ao da FIEMG."""
-    from .coletores.fiemg_api import JS_CONSULTA, LISTAS, registro_para_edital
+    from .coletores.paradigma_api import JS_CONSULTA, LISTAS, mural, registro_para_edital
 
+    base = mural(page.url)
     resultado = {}
     for nome, lista in LISTAS.items():
         dto = copy.deepcopy(lista["dto"])
@@ -104,7 +105,7 @@ def testar_paradigma(page) -> dict:
         editais = []
         for reg in regs[:5]:
             try:
-                ed = registro_para_edital(reg, nome, "teste")
+                ed = registro_para_edital(reg, nome, "teste", base, apelido_na_unidade=True)
             except Exception as e:
                 editais.append({"erro": str(e)[:200]})
                 continue
@@ -265,7 +266,7 @@ def relatorio(r: dict, max_texto: int = 1500, todos_links: bool = False) -> str:
             linhas.append(f"    resposta: {c['amostra'][:max_texto]}")
 
     if r.get("paradigma") is not None:
-        linhas.append("\n-- Teste do serviço Paradigma (mesmas chamadas do coletor fiemg_api)")
+        linhas.append("\n-- Teste do serviço Paradigma (mesmas chamadas do coletor paradigma_api)")
         for nome, res in r["paradigma"].items():
             if "erro" in res:
                 linhas.append(f"  {nome}: ERRO {res['erro']}")

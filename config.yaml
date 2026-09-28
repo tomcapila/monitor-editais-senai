@@ -44,7 +44,7 @@ fontes:
   # Coletor principal: usa o serviço JSON do próprio portal (mesmos dados das
   # tabelas, com datas e paginação). Mesmo nome da fonte abaixo, para não
   # duplicar editais já salvos por ela.
-  - tipo: fiemg_api
+  - tipo: paradigma_api
     nome: Portal de Compras FIEMG
     uf: MG
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
@@ -55,7 +55,22 @@ fontes:
     max_registros: 200       # quantos processos mais recentes do mural ler
     por_pagina: 50
 
-  # Alternativa: lê as tabelas do HTML. Use se o serviço JSON mudar.
+  # SENAI-RJ: o Portal de Compras Firjan usa a mesma plataforma (Paradigma) e
+  # responde às mesmas chamadas (diagnóstico de 28/09/2026). Mistura Firjan,
+  # SESI, SENAI e IEL; o apelido do processo diz qual é.
+  - tipo: paradigma_api
+    nome: Portal de Compras Firjan
+    uf: RJ
+    url: https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
+    ativo: true
+    listas: [mural, chamamentos, rfis]
+    max_registros: 200
+    por_pagina: 50
+    # a unidade vem sem a entidade ("IST AUTOMAÇÃO"); isto põe o apelido na
+    # frente ("SENAI - IST AUTOMAÇÃO") para o painel e o filtro "Só SENAI"
+    apelido_na_unidade: true
+
+  # Alternativa para a FIEMG: lê as tabelas do HTML. Use se o serviço JSON mudar.
   - tipo: fiemg_paradigma
     nome: Portal de Compras FIEMG
     uf: MG
