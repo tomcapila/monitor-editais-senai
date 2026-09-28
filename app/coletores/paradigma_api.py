@@ -1,5 +1,9 @@
 """
-Coletor do Portal de Compras FIEMG pelo serviço JSON do próprio portal.
+Coletor de portais de compras Paradigma pelo serviço JSON do próprio portal.
+
+Serve para a FIEMG (MG) e a Firjan (RJ), que usam a mesma plataforma: o
+diagnóstico de 28/09/2026 mostrou o portal da Firjan respondendo às mesmas
+chamadas, com os mesmos campos.
 
 O mural preenche as tabelas chamando WebService/Servicos.asmx (ASMX, JSON).
 Em vez de ler o HTML, abrimos a página uma vez no Playwright (o site passa
@@ -17,7 +21,7 @@ import copy
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from playwright.sync_api import sync_playwright
 
@@ -25,7 +29,7 @@ from .base import USER_AGENT, Coletor, Edital, parse_data
 
 log = logging.getLogger(__name__)
 
-URL_MURAL = "https://compras.fiemg.com.br/portal/Mural.aspx"
+URL_MURAL = "https://compras.fiemg.com.br/portal/Mural.aspx"  # padrão, se a fonte não tiver url
 
 # Payload do mural (tela "Edital", nNmTela=E): tmpTipoMuralProcesso 2 = EDITAL.
 _DTO_MURAL = {
@@ -91,6 +95,8 @@ _DATA_NET = re.compile(r"/Date\((-?\d+)")
 _EPOCA = datetime(1970, 1, 1, tzinfo=timezone.utc)
 _BRASILIA = timezone(timedelta(hours=-3))  # sem horário de verão desde 2019
 _MS_1900 = -2208988800000  # 01/01/1900 em ms; abaixo disso é "sem data"
+# A Firjan manda a unidade como "03.848.688/0009-00 - IST AUTOMAÇÃO"
+_CNPJ = re.compile(r"^\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\s*-\s*")
 
 
 def _texto(v) -> str:
@@ -123,15 +129,41 @@ def parse_data_portal(v) -> date | None:
     return parse_data(s)
 
 
-def link_processo(reg: dict) -> str:
+def mural(url: str) -> str:
+    """Endereço do Mural.aspx do portal, sem a consulta (?nNmTela=...)."""
+    if not url:
+        return URL_MURAL
+    partes = urlsplit(url)
+    return urlunsplit((partes.scheme, partes.netloc, partes.path, "", ""))
+
+
+def link_processo(reg: dict, base: str = URL_MURAL) -> str:
     """Link que abre o processo no mural (a página lê esses parâmetros da URL)."""
     params = {"nNmTela": "E", "nCdProcesso": reg.get("nCdProcesso")}
     if reg.get("nCdModulo"):
         params["nCdModulo"] = reg["nCdModulo"]
-    return f"{URL_MURAL}?{urlencode(params)}"
+    return f"{base}?{urlencode(params)}"
 
 
-def registro_para_edital(reg: dict, lista: str, fonte_nome: str) -> Edital | None:
+def unidade(reg: dict, apelido_na_unidade: bool = False) -> str:
+    """Unidade compradora, sem o CNPJ que alguns portais põem na frente.
+
+    Na FIEMG sNmEmpresa traz a unidade real (ex.: "SESI/DRMG - SEDE") e o
+    apelido é só "SISTEMA FIEMG". Na Firjan o apelido é a entidade ("SENAI",
+    "SESI") e a unidade vem sem ela ("IST AUTOMAÇÃO"); com apelido_na_unidade,
+    vira "SENAI - IST AUTOMAÇÃO", o que também faz o filtro reconhecer o SENAI.
+    """
+    nome = _CNPJ.sub("", _texto(reg.get("sNmEmpresa")))
+    apelido = _texto(reg.get("sNmApelido"))
+    if not nome:
+        return apelido
+    if apelido_na_unidade and apelido and apelido.lower() not in nome.lower():
+        return f"{apelido} - {nome}"
+    return nome
+
+
+def registro_para_edital(reg: dict, lista: str, fonte_nome: str, base: str = URL_MURAL,
+                         apelido_na_unidade: bool = False) -> Edital | None:
     cod = reg.get("nCdProcesso")
     if not cod:
         return None
@@ -145,10 +177,8 @@ def registro_para_edital(reg: dict, lista: str, fonte_nome: str) -> Edital | Non
         id_externo=str(cod),
         titulo=titulo,
         objeto=objeto,
-        url=link_processo(reg),
-        # sNmEmpresa traz a unidade real (ex.: "SESI/DRMG - SEDE"); o apelido
-        # costuma ser só "SISTEMA FIEMG"
-        unidade=_texto(reg.get("sNmEmpresa")) or _texto(reg.get("sNmApelido")),
+        url=link_processo(reg, base),
+        unidade=unidade(reg, apelido_na_unidade),
         tipo=_texto(reg.get("sNmModalidade")) or LISTAS[lista].get("tipo", ""),
         situacao=_texto(reg.get("sDsSituacao")),
         data_publicacao=parse_data_portal(reg.get("tDtInicial") or reg.get("sDtInicioVigencia")),
@@ -156,8 +186,10 @@ def registro_para_edital(reg: dict, lista: str, fonte_nome: str) -> Edital | Non
     )
 
 
-class ColetorFiemgApi(Coletor):
+class ColetorParadigmaApi(Coletor):
     def coletar(self) -> list[Edital]:
+        base = mural(self.url)
+        apelido_na_unidade = bool(self.fonte.get("apelido_na_unidade"))
         listas = self.fonte.get("listas", list(LISTAS))
         por_pagina = int(self.fonte.get("por_pagina", 50))
         max_registros = int(self.fonte.get("max_registros", 200))
@@ -172,7 +204,7 @@ class ColetorFiemgApi(Coletor):
             page = browser.new_page(locale="pt-BR", user_agent=USER_AGENT)
             try:
                 self.progresso.passo("Abrindo o portal", feitos, total)
-                page.goto(self.url or f"{URL_MURAL}?nNmTela=E",
+                page.goto(self.url or f"{base}?nNmTela=E",
                           wait_until="networkidle", timeout=self.timeout_ms())
                 feitos += 1
 
@@ -196,7 +228,8 @@ class ColetorFiemgApi(Coletor):
                         feitos += 1
                         for reg in registros:
                             try:
-                                ed = registro_para_edital(reg, nome, self.nome)
+                                ed = registro_para_edital(reg, nome, self.nome, base,
+                                                          apelido_na_unidade)
                             except Exception as e:  # um registro estranho não derruba a fonte
                                 log.warning("Registro ignorado (%s): %s", e, reg.get("nCdProcesso"))
                                 continue
@@ -210,3 +243,6 @@ class ColetorFiemgApi(Coletor):
                 browser.close()
         self.progresso.passo(f"{len(resultados)} editais lidos", total, total)
         return list(resultados.values())
+
+
+ColetorFiemgApi = ColetorParadigmaApi  # nome antigo

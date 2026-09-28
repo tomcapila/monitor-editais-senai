@@ -18,8 +18,8 @@ from .config import BASE_DIR, STATIC_DIR, carregar_config
 SAIDA = BASE_DIR / "site"
 
 # só o que o painel mostra ou usa para filtrar
-CAMPOS = ("id_externo", "titulo", "objeto", "unidade", "url", "situacao", "tipo",
-          "data_publicacao", "prazo", "relevante", "do_senai", "primeiro_visto")
+CAMPOS = ("id_externo", "titulo", "objeto", "unidade", "uf", "url", "situacao", "tipo",
+          "data_publicacao", "prazo", "relevante", "do_senai", "primeiro_visto", "da_carga")
 
 
 def url_workflow() -> str | None:
@@ -38,7 +38,6 @@ def exportar() -> dict:
     dados = {
         "gerado_em": datetime.now().isoformat(timespec="seconds"),
         "ultima": db.ultima_execucao(),
-        "carga_inicial": db.carga_inicial(),
         "termos_relevantes": filtro.get("termos_relevantes", []),
         "workflow_url": url_workflow(),
         "editais": editais,

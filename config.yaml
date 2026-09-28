@@ -1,10 +1,10 @@
-# Configuração do monitor de editais SENAI-MG
+# Configuração do monitor de editais SENAI
 # Edite este arquivo para mudar fontes, palavras-chave e frequência.
 
 coleta:
   intervalo_horas: 12        # frequência da coleta automática
   timeout_segundos: 60       # limite de cada operação de rede
-  tempo_limite_segundos: 120 # limite da coleta inteira; ao estourar, para e guarda o que já coletou
+  tempo_limite_segundos: 600 # limite da coleta inteira (todas as fontes); ao estourar, para e guarda o que já coletou
   ler_pdfs: true             # baixa PDFs encontrados e lê as primeiras páginas
   max_paginas_pdf: 10
 
@@ -30,7 +30,7 @@ filtro:
     - generos alimenticios
   # Quantos termos relevantes distintos precisam aparecer.
   relevancia_minima: 1
-  # Usado para marcar o que é do SENAI (o portal da FIEMG mistura SESI, IEL etc.)
+  # Usado para marcar o que é do SENAI (os portais das federações misturam SESI, IEL etc.)
   termos_orgao:
     - senai
 
@@ -38,11 +38,15 @@ diagnostico:
   tempo_limite_segundos: 180
 
 fontes:
+  # Cada fonte tem um estado (uf), mostrado no painel e nos alertas.
+  # A primeira coleta de uma fonte nova é a carga inicial: não gera alertas.
+
   # Coletor principal: usa o serviço JSON do próprio portal (mesmos dados das
   # tabelas, com datas e paginação). Mesmo nome da fonte abaixo, para não
   # duplicar editais já salvos por ela.
-  - tipo: fiemg_api
+  - tipo: paradigma_api
     nome: Portal de Compras FIEMG
+    uf: MG
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
     ativo: true
     # mural = processos (inclui credenciamentos); chamamentos e rfis = tela
@@ -51,9 +55,39 @@ fontes:
     max_registros: 200       # quantos processos mais recentes do mural ler
     por_pagina: 50
 
-  # Alternativa: lê as tabelas do HTML. Use se o serviço JSON mudar.
+  # SENAI-RJ: o Portal de Compras Firjan usa a mesma plataforma (Paradigma) e
+  # responde às mesmas chamadas (diagnóstico de 28/09/2026). Mistura Firjan,
+  # SESI, SENAI e IEL; o apelido do processo diz qual é.
+  - tipo: paradigma_api
+    nome: Portal de Compras Firjan
+    uf: RJ
+    url: https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
+    ativo: true
+    listas: [mural, chamamentos, rfis]
+    max_registros: 200
+    por_pagina: 50
+    # a unidade vem sem a entidade ("IST AUTOMAÇÃO"); isto põe o apelido na
+    # frente ("SENAI - IST AUTOMAÇÃO") para o painel e o filtro "Só SENAI"
+    apelido_na_unidade: true
+
+  # SENAI-SP: API pública do Sistema Transparência, a mesma dos botões
+  # "Salvar em XLSX" da página de transparência (diagnóstico de 28/09/2026).
+  # Um processo aberto não reaparece na lista do ano seguinte: 'anos' diz
+  # quantos anos consultar (o atual e os anteriores).
+  - tipo: sistema_transparencia
+    nome: Transparência SENAI-SP
+    uf: SP
+    # página pública: link dos processos e, quando ela lista, o PDF do edital
+    url: https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
+    departamento: SENAI-SP
+    entidade: SENAI
+    anos: 2
+    ativo: true
+
+  # Alternativa para a FIEMG: lê as tabelas do HTML. Use se o serviço JSON mudar.
   - tipo: fiemg_paradigma
     nome: Portal de Compras FIEMG
+    uf: MG
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
     ativo: false
     # Textos de links que o coletor tenta clicar para carregar listas completas.
@@ -67,12 +101,14 @@ fontes:
 
   - tipo: pagina_links
     nome: FIEMG credenciamento de consultores (IEL)
+    uf: MG
     url: https://www.fiemg.com.br/area-de-interesse/capacitacao-empresarial/credenciamento-de-consultores/
     ativo: true             # ative se quiser acompanhar também o IEL-MG
     unidade: IEL-MG
 
   - tipo: demo
     nome: Dados de exemplo
+    uf: MG
     ativo: false             # ative só para testar a interface sem internet
 
 alertas:
