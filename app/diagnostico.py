@@ -69,6 +69,16 @@ FASES = ["Abrindo o navegador", "Carregando o portal", "Aguardando as tabelas (A
          "Salvando HTML e captura da tela", "Lendo as tabelas", "Gravando os arquivos"]
 
 
+def _corpo_enviado(request) -> str | None:
+    """Corpo de um POST como texto. Alguns sites (ex.: Sebrae One) mandam o
+    corpo compactado; ler como texto quebrava o evento e o diagnóstico todo."""
+    try:
+        return request.post_data
+    except UnicodeDecodeError:
+        corpo = request.post_data_buffer or b""
+        return f"({len(corpo)} bytes binários)"
+
+
 def _carregar(page, url: str) -> str | None:
     """Abre a página esperando a rede acalmar. Se ela nunca acalma (anúncios,
     chat, métricas), segue com o que carregou e devolve um aviso."""
@@ -153,7 +163,7 @@ def rodar(url: str = URL_PADRAO, visivel: bool = False, pausa=None,
                 item = {"url": resp.url, "metodo": resp.request.method,
                         "status": resp.status,
                         "tipo": resp.headers.get("content-type", ""),
-                        "post": resp.request.post_data}
+                        "post": _corpo_enviado(resp.request)}
                 try:
                     item["amostra"] = resp.text()[:amostra_max]
                 except Exception:
