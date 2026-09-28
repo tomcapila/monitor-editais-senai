@@ -14,6 +14,15 @@ def criar_coletor(fonte: dict, config: dict, progresso: Progresso | None = None)
     if tipo == "sistema_transparencia":
         from .sistema_transparencia import ColetorSistemaTransparencia
         return ColetorSistemaTransparencia(fonte, config, progresso)
+    if tipo == "sebrae_canal":
+        from .sebrae_canal import ColetorSebraeCanal
+        return ColetorSebraeCanal(fonte, config, progresso)
+    if tipo == "sebrae_one":
+        from .sebrae_one import ColetorSebraeOne
+        return ColetorSebraeOne(fonte, config, progresso)
+    if tipo == "sebrae_sgf":
+        from .sebrae_sgf import ColetorSebraeSgf
+        return ColetorSebraeSgf(fonte, config, progresso)
     if tipo == "pagina_links":
         from .pagina_links import ColetorPaginaLinks
         return ColetorPaginaLinks(fonte, config, progresso)

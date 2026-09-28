@@ -90,6 +90,59 @@ fontes:
     anos: 2
     ativo: true
 
+  # ---------- Sebrae ----------
+  # Licitações: o Canal do Fornecedor publica as de todo o Sistema Sebrae numa
+  # lista só. Uma fonte por estado, separada pelas 'marcas' (texto que aparece
+  # no número ou na unidade do processo); a lista é lida uma vez por coleta.
+  - tipo: sebrae_canal
+    nome: Sebrae MG - licitações
+    uf: MG
+    instituicao: SEBRAE
+    url: https://www.scf3.sebrae.com.br/portalcf/Licitacoes
+    marcas: [SEBRAE-MG, SEBRAE/MG, SEBRAE MINAS, MINAS GERAIS]
+    ativo: true
+
+  - tipo: sebrae_canal
+    nome: Sebrae RJ - licitações
+    uf: RJ
+    instituicao: SEBRAE
+    url: https://www.scf3.sebrae.com.br/portalcf/Licitacoes
+    marcas: [SEBRAE-RJ, SEBRAE/RJ, RIO DE JANEIRO]  # "SEBRAE RIO" pegaria RN e RS
+    ativo: true
+
+  - tipo: sebrae_canal
+    nome: Sebrae SP - licitações
+    uf: SP
+    instituicao: SEBRAE
+    url: https://www.scf3.sebrae.com.br/portalcf/Licitacoes
+    marcas: [SEBRAE-SP, SEBRAE/SP, SEBRAE SAO PAULO, SEBRAE-SAO PAULO]
+    ativo: true
+
+  # Credenciamento de consultoria e instrutoria. MG: Sebrae One, plataforma
+  # própria do Sebrae Minas (cada chamada aberta num edital vira um item).
+  - tipo: sebrae_one
+    nome: Sebrae MG - credenciamento
+    uf: MG
+    instituicao: SEBRAE
+    url: https://credenciamento.sebraemg.com.br/
+    ativo: true
+
+  # RJ e SP: SGF, sistema nacional do Sebrae (o SOMA do Sebrae-SP inscreve
+  # por ele). Lê os editais com situação "Aberto" do estado.
+  - tipo: sebrae_sgf
+    nome: Sebrae RJ - credenciamento
+    uf: RJ
+    instituicao: SEBRAE
+    url: https://sgf.sebrae.com.br/Home/
+    ativo: true
+
+  - tipo: sebrae_sgf
+    nome: Sebrae SP - credenciamento
+    uf: SP
+    instituicao: SEBRAE
+    url: https://sgf.sebrae.com.br/Home/
+    ativo: true
+
   # Alternativa para a FIEMG: lê as tabelas do HTML. Use se o serviço JSON mudar.
   - tipo: fiemg_paradigma
     nome: Portal de Compras FIEMG
