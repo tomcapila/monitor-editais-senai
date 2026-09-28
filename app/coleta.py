@@ -21,6 +21,24 @@ _lock = threading.Lock()
 progresso = Progresso()
 
 
+def resumir_erro(e: Exception) -> str:
+    """Uma linha legível para o painel; o detalhe completo fica no log.
+
+    Uma linha só por erro: o painel separa as fontes pelas quebras de linha.
+    """
+    codigo = getattr(getattr(e, "response", None), "status_code", None)
+    if codigo in (401, 403):
+        return f"o site recusou o acesso (HTTP {codigo})"
+    if codigo:
+        return f"o site respondeu com erro (HTTP {codigo})"
+    nome = type(e).__name__  # por nome, para não acoplar a httpx/Playwright
+    if "Timeout" in nome:
+        return "o site demorou demais para responder"
+    if nome == "ConnectError":
+        return "não foi possível conectar ao site"
+    return ((str(e).strip().splitlines() or [nome])[0])[:200]
+
+
 def executar_coleta() -> dict:
     if not _lock.acquire(blocking=False):
         return {"status": "ja_rodando"}
@@ -48,7 +66,7 @@ def executar_coleta() -> dict:
                 except Exception as e:
                     progresso.verificar()  # timeout do Playwright pode ter sido o limite total
                     log.exception("Erro na fonte %s", fonte["nome"])
-                    erros.append(f"{fonte['nome']}: {e}")
+                    erros.append(f"{fonte['nome']}: {resumir_erro(e)}")
                     continue
 
                 progresso.fase(f"Processando: {fonte['nome']}", 2 * i + 1)

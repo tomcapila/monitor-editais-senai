@@ -51,6 +51,10 @@
   .aviso p { margin: 0; max-width: 72ch; }
   .aviso b { color: var(--alerta); }
   .aviso a { color: var(--alerta); font-weight: 700; white-space: nowrap; border-radius: 2px; }
+  /* Falha de uma fonte com as outras em dia: informa sem alarmar (o vermelho fica para o aviso acima) */
+  .fontes-erro { margin: 6px 0 0; font-size: .875rem; color: var(--tinta-2); max-width: 72ch; }
+  .fontes-erro[hidden] { display: none; }
+  .fontes-erro b { color: var(--tinta); font-weight: 600; }
   .tentar { margin: 16px 0 0; }
   .tentar[hidden] { display: none; }
 
@@ -173,6 +177,7 @@
     <p class="resumo-2" id="resumo2"></p>
     <p class="tentar" id="tentar" hidden><button id="btnTentar" type="button" class="secundario">Tentar de novo</button></p>
     <p class="status" id="status"></p>
+    <p class="fontes-erro" id="fontesErro" hidden></p>
     <div class="progresso" id="progColeta" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso da coleta">
       <div class="barra"><div></div></div>
       <div class="progresso-texto"><span class="etapa"></span><span class="detalhe"></span><span class="tempo"></span></div>
@@ -385,6 +390,41 @@ const seguro = fn => async (...args) => {
   try { await fn(...args); } catch (e) { mostrarErro(e); }
 };
 
+/* ---------- Filtros: lembrados entre visitas e refletidos no endereço ---------- */
+// O endereço vence (um link compartilhado abre com os filtros de quem mandou);
+// sem nada nele, vale a última escolha feita neste navegador.
+const FILTROS_PADRAO = { q: "", relevantes: true, abertos: true, senai: false };
+const CAIXAS = ["relevantes", "abertos", "senai"];
+
+function lerFiltros() {
+  const url = new URLSearchParams(location.search);
+  const f = { ...FILTROS_PADRAO };
+  if (Object.keys(f).some(k => url.has(k))) {
+    if (url.has("q")) f.q = url.get("q");
+    for (const k of CAIXAS) if (url.has(k)) f[k] = url.get(k) === "1";
+    return f;
+  }
+  try {
+    const salvo = JSON.parse(localStorage.getItem("filtros") || "{}");
+    for (const k in f) if (typeof salvo[k] === typeof f[k]) f[k] = salvo[k];
+  } catch { /* nada salvo ou armazenamento bloqueado: padrão */ }
+  return f;
+}
+
+function aplicarFiltros(f) {
+  $("busca").value = f.q;
+  for (const k of CAIXAS) $(k).checked = f[k];
+}
+
+function guardarFiltros(f) {
+  const url = new URLSearchParams();
+  if (f.q) url.set("q", f.q);
+  for (const k of CAIXAS) if (f[k] !== FILTROS_PADRAO[k]) url.set(k, f[k] ? "1" : "0");
+  const qs = url.toString();
+  history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash);
+  try { localStorage.setItem("filtros", JSON.stringify(f)); } catch { /* segue sem lembrar */ }
+}
+
 let primeiraCarga = true;
 async function carregar() {
   const filtros = {
@@ -393,6 +433,7 @@ async function carregar() {
     abertos: $("abertos").checked,
     senai: $("senai").checked,
   };
+  guardarFiltros(filtros);
   const dados = estatico ? listarEstatico(filtros)
     : await api("/api/editais?" + new URLSearchParams(filtros));
   $("contagem").textContent = `${dados.length} ${dados.length === 1 ? "processo" : "processos"}`;
@@ -499,42 +540,100 @@ function avisarSeDesatualizado(ultima) {
   }
 }
 
+const lidosNovos = u => `${u.encontrados} ${u.encontrados === 1 ? "processo lido" : "processos lidos"}, `
+  + `${u.novos} ${u.novos === 1 ? "novo" : "novos"}`;
+
+// Uma linha por fonte que falhou (ver resumir_erro em app/coleta.py). Se a coleta
+// trouxe processos, é informação, não alarme: o vermelho fica para o aviso do topo.
+function mostrarErrosFontes(u) {
+  const el = $("fontesErro");
+  const linhas = (u?.erros || "").split("\n").map(l => l.trim()).filter(Boolean);
+  el.hidden = !linhas.length;
+  if (!linhas.length) return;
+  const itens = linhas.map(l => {
+    const i = l.indexOf(": ");
+    return i > 0 ? `<b>${esc(l.slice(0, i))}</b>: ${esc(l.slice(i + 2))}` : esc(l);
+  });
+  el.innerHTML = (linhas.length === 1 ? "Uma fonte falhou na última coleta. " : "Algumas fontes falharam na última coleta. ")
+    + itens.join("; ") + "." + (u.encontrados ? " O restante foi coletado normalmente." : "");
+}
+
 async function atualizarStatus() {
   const s = await api("/api/status");
   avisarSeDesatualizado(s.rodando ? null : s.ultima);
+  mostrarErrosFontes(s.rodando ? null : s.ultima);
   const el = $("status");
   $("btnColetar").disabled = s.rodando;
   $("btnColetar").textContent = s.rodando ? "Coletando…" : "Coletar agora";
-  el.classList.remove("erro");
   mostrarProgresso($("progColeta"), s.progresso);
   if (s.rodando) { el.textContent = ""; return s; }
   if (!s.ultima) { el.textContent = "Nenhuma coleta feita ainda."; return s; }
   const u = s.ultima;
-  let txt = `Última coleta em ${fmtHora(u.fim)}: ${u.encontrados} processos lidos, ${u.novos} novos.`;
+  let txt = `Última coleta em ${fmtHora(u.fim)}: ${lidosNovos(u)}.`;
   if (s.proxima) txt += ` A próxima roda sozinha em ${fmtHora(s.proxima)}.`;
-  if (u.erros) { el.classList.add("erro"); txt += ` A coleta teve erros: ${u.erros}`; }
   el.textContent = txt;
   return s;
 }
 
 // Na versão publicada a coleta roda no GitHub Actions, duas vezes por dia.
+// O botão vira um link secundário: leva ao GitHub, onde só o dono pode rodar.
+let atualizadoAgora = false;
 function statusEstatico() {
-  const el = $("status"), u = estatico.ultima;
-  $("btnColetar").hidden = !estatico.workflow_url;
-  $("btnColetar").title = "Abre o GitHub Actions: clique em Run workflow e recarregue esta página quando terminar";
+  const el = $("status"), u = estatico.ultima, btn = $("btnColetar");
+  btn.hidden = !estatico.workflow_url;
+  btn.classList.add("secundario");
+  btn.textContent = "Rodar coleta no GitHub ↗";
+  btn.title = "Abre o GitHub Actions. Clique em Run workflow; esta página se atualiza sozinha quando a coleta for publicada.";
   avisarSeDesatualizado(u);
+  mostrarErrosFontes(u);
   if (!u) { el.textContent = "Nenhuma coleta feita ainda."; return; }
-  let txt = `Última coleta em ${fmtHora(u.fim)}: ${u.encontrados} processos lidos, ${u.novos} novos. A coleta roda sozinha duas vezes por dia.`;
-  el.classList.toggle("erro", !!u.erros);
-  if (u.erros) txt += ` A coleta teve erros: ${u.erros}`;
-  el.textContent = txt;
+  el.textContent = (atualizadoAgora ? "Lista atualizada agora. " : "")
+    + `Última coleta em ${fmtHora(u.fim)}: ${lidosNovos(u)}. A coleta roda sozinha duas vezes por dia.`;
 }
+
+/* ---------- Versão publicada: percebe quando uma coleta nova foi publicada ---------- */
+// Confere o dados.json ao voltar para a aba e, depois de clicar no botão, a cada
+// 30 s por 15 minutos (a coleta mais a publicação levam uns 2 minutos).
+async function verificarPublicacao() {
+  try {
+    const r = await fetch("dados.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const novo = await r.json();
+    if (novo.gerado_em === estatico.gerado_em) return;
+    estatico = novo;
+    termos = novo.termos_relevantes.map(t => [...t].map(normChar).join("")).filter(Boolean);
+    atualizadoAgora = true;
+    await carregarResumo();
+    await carregar();
+    statusEstatico();
+    pararVigia();
+  } catch { /* sem rede agora: confere de novo na próxima */ }
+}
+
+let vigia = null, vigiaAte = 0;
+function vigiarPublicacao() {
+  vigiaAte = Date.now() + 15 * 60 * 1000;
+  if (vigia) return;
+  vigia = setInterval(() => {
+    if (Date.now() > vigiaAte) return pararVigia();
+    if (document.visibilityState === "visible") verificarPublicacao();
+  }, 30 * 1000);
+}
+function pararVigia() { clearInterval(vigia); vigia = null; }
+
+document.addEventListener("visibilitychange", () => {
+  if (estatico && document.visibilityState === "visible") verificarPublicacao();
+});
 
 const recarregar = seguro(async () => { await carregarResumo(); await carregar(); });
 const acompanharColeta = acompanhar(atualizarStatus, recarregar);
 
 $("btnColetar").addEventListener("click", async () => {
-  if (estatico) { window.open(estatico.workflow_url, "_blank", "noopener"); return; }
+  if (estatico) {
+    window.open(estatico.workflow_url, "_blank", "noopener");
+    vigiarPublicacao();
+    return;
+  }
   $("btnColetar").disabled = true;
   await fetch("/api/coletar", { method: "POST" });
   await atualizarStatus();
@@ -592,6 +691,17 @@ $("diag").addEventListener("toggle", async e => {
 });
 
 /* ---------- Início ---------- */
+// Uma falha de rede passageira (comum no celular) ganha uma segunda tentativa
+// antes de virar tela de erro.
+async function buscarDados() {
+  try {
+    return await fetch("dados.json", { cache: "no-store" });
+  } catch {
+    await new Promise(r => setTimeout(r, 1000));
+    return fetch("dados.json", { cache: "no-store" });
+  }
+}
+
 const iniciar = seguro(async () => {
   $("resumo").textContent = "Carregando…";
   $("resumo2").textContent = "";
@@ -599,7 +709,7 @@ const iniciar = seguro(async () => {
   // dados.json só existe na versão publicada; no servidor local dá 404 e segue a API
   falhaDados = null;
   try {
-    const r = await fetch("dados.json", { cache: "no-store" });
+    const r = await buscarDados();
     if (r.ok) estatico = await r.json();
     else if (r.status !== 404) falhaDados = `HTTP ${r.status}`;
   } catch (e) { falhaDados = String(e); }
@@ -621,6 +731,7 @@ const iniciar = seguro(async () => {
 });
 
 $("btnTentar").addEventListener("click", iniciar);
+aplicarFiltros(lerFiltros());
 iniciar();
 </script>
 </body>
