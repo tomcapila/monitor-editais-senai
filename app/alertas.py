@@ -16,7 +16,10 @@ def _resumo(editais: list[Edital]) -> str:
     linhas = [f"{len(editais)} edital(is) novo(s) relevante(s):", ""]
     for ed in editais[:20]:
         prazo = ed.prazo.strftime("%d/%m/%Y") if ed.prazo else "prazo não identificado"
-        onde = " | ".join(filter(None, [ed.uf, ed.unidade or ed.fonte]))
+        unidade = ed.unidade or ed.fonte
+        # a instituição só entra quando a unidade não a menciona ("SENAI/DRMG - SEDE" já diz)
+        inst = ed.instituicao if ed.instituicao.lower() not in unidade.lower() else ""
+        onde = " | ".join(filter(None, [ed.uf, inst, unidade]))
         linhas += [f"• {ed.titulo}", f"  {onde} | {prazo}", f"  {ed.url}", ""]
     if len(editais) > 20:
         linhas.append(f"... e mais {len(editais) - 20}. Veja no painel.")
@@ -49,7 +52,7 @@ def enviar(editais: list[Edital], cfg: dict) -> bool:
     if cfg.get("email"):
         try:
             msg = EmailMessage()
-            msg["Subject"] = f"[Editais SENAI] {len(editais)} novo(s)"
+            msg["Subject"] = f"[Editais SENAI e Sebrae] {len(editais)} novo(s)"
             msg["From"] = os.environ["SMTP_USER"]
             msg["To"] = os.environ["EMAIL_PARA"]
             msg.set_content(texto)

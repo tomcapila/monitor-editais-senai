@@ -38,6 +38,7 @@ class Edital:
     objeto: str = ""
     unidade: str = ""
     uf: str = ""  # estado da fonte (MG, SP, RJ); vem do config.yaml
+    instituicao: str = ""  # SENAI (portais do Sistema Indústria) ou SEBRAE; vem do config.yaml
     situacao: str = ""
     tipo: str = ""
     data_publicacao: date | None = None

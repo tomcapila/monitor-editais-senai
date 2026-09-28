@@ -1,4 +1,4 @@
-# Monitor de editais SENAI (MG, RJ, SP)
+# Monitor de editais SENAI e Sebrae (MG, RJ, SP)
 
 Coleta editais e chamamentos públicos dos portais de compras da FIEMG (MG)
 e da Firjan (RJ) e da transparência do SENAI-SP,
@@ -164,6 +164,9 @@ os arquivos ficam no artefato `diagnostico` da execução.
 
 Crie um módulo em `app/coletores/` herdando de `Coletor`, devolva uma lista de
 `Edital` em `coletar()`, registre o tipo em `app/coletores/__init__.py` e
-adicione a fonte no `config.yaml` com o campo `uf` (sigla do estado, que
-aparece no painel e nos alertas). Para sites simples, `pagina_links` já pode
+adicione a fonte no `config.yaml` com os campos `uf` (sigla do estado) e
+`instituicao` (`SENAI` para portais do Sistema Indústria, `SEBRAE` para os do
+Sebrae), que aparecem no painel e nos alertas. O botão "SENAI" do painel mostra
+só o que é do SENAI dentro dos portais da indústria, que também trazem SESI,
+IEL e federações. Para sites simples, `pagina_links` já pode
 servir sem código novo.

@@ -1,4 +1,4 @@
-# Configuração do monitor de editais SENAI
+# Configuração do monitor de editais SENAI e Sebrae
 # Edite este arquivo para mudar fontes, palavras-chave e frequência.
 
 coleta:
@@ -38,7 +38,10 @@ diagnostico:
   tempo_limite_segundos: 180
 
 fontes:
-  # Cada fonte tem um estado (uf), mostrado no painel e nos alertas.
+  # Cada fonte tem um estado (uf) e uma instituição, mostrados no painel e nos
+  # alertas. instituicao: SENAI nos portais do Sistema Indústria (que também
+  # trazem SESI, IEL e federações; o botão "SENAI" do painel mostra só o que é
+  # do SENAI) e SEBRAE nas fontes do Sebrae.
   # A primeira coleta de uma fonte nova é a carga inicial: não gera alertas.
 
   # Coletor principal: usa o serviço JSON do próprio portal (mesmos dados das
@@ -47,6 +50,7 @@ fontes:
   - tipo: paradigma_api
     nome: Portal de Compras FIEMG
     uf: MG
+    instituicao: SENAI
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
     ativo: true
     # mural = processos (inclui credenciamentos); chamamentos e rfis = tela
@@ -61,6 +65,7 @@ fontes:
   - tipo: paradigma_api
     nome: Portal de Compras Firjan
     uf: RJ
+    instituicao: SENAI
     url: https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
     ativo: true
     listas: [mural, chamamentos, rfis]
@@ -77,6 +82,7 @@ fontes:
   - tipo: sistema_transparencia
     nome: Transparência SENAI-SP
     uf: SP
+    instituicao: SENAI
     # página pública: link dos processos e, quando ela lista, o PDF do edital
     url: https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
     departamento: SENAI-SP
@@ -88,6 +94,7 @@ fontes:
   - tipo: fiemg_paradigma
     nome: Portal de Compras FIEMG
     uf: MG
+    instituicao: SENAI
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
     ativo: false
     # Textos de links que o coletor tenta clicar para carregar listas completas.
@@ -102,6 +109,7 @@ fontes:
   - tipo: pagina_links
     nome: FIEMG credenciamento de consultores (IEL)
     uf: MG
+    instituicao: SENAI
     url: https://www.fiemg.com.br/area-de-interesse/capacitacao-empresarial/credenciamento-de-consultores/
     ativo: true             # ative se quiser acompanhar também o IEL-MG
     unidade: IEL-MG
@@ -109,6 +117,7 @@ fontes:
   - tipo: demo
     nome: Dados de exemplo
     uf: MG
+    instituicao: SENAI
     ativo: false             # ative só para testar a interface sem internet
 
 alertas:

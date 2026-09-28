@@ -27,7 +27,8 @@ def main() -> int:
               if (f["nome"] in nomes if nomes else f.get("ativo", True))]
     falhas = 0
     for fonte in fontes:
-        print(f"=== {fonte['nome']} ({fonte['tipo']}, {fonte.get('uf', '?')})", flush=True)
+        print(f"=== {fonte['nome']} ({fonte['tipo']}, {fonte.get('uf', '?')}, "
+              f"{fonte.get('instituicao', '?')})", flush=True)
         progresso = Progresso()
         progresso.iniciar(config.get("coleta", {}).get("tempo_limite_segundos", 600))
         try:
@@ -40,6 +41,7 @@ def main() -> int:
             progresso.finalizar()
         for ed in editais:
             ed.uf = ed.uf or fonte.get("uf", "")
+            ed.instituicao = ed.instituicao or fonte.get("instituicao", "")
             avaliar(ed, config.get("filtro", {}))
         relevantes = [e for e in editais if e.relevante]
         abertos = [e for e in relevantes if not encerrado(e.situacao)]

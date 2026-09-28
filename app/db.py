@@ -12,6 +12,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS editais (
     chave TEXT PRIMARY KEY,
     fonte TEXT, id_externo TEXT, titulo TEXT, objeto TEXT, unidade TEXT, uf TEXT,
+    instituicao TEXT,
     url TEXT, situacao TEXT, tipo TEXT,
     data_publicacao TEXT, prazo TEXT,
     relevancia INTEGER, relevante INTEGER, do_senai INTEGER,
@@ -51,6 +52,10 @@ def _migrar(con):
         con.execute("ALTER TABLE editais ADD COLUMN uf TEXT")
         # até aqui o monitor só coletava em Minas Gerais
         con.execute("UPDATE editais SET uf = 'MG'")
+    if "instituicao" not in colunas:
+        con.execute("ALTER TABLE editais ADD COLUMN instituicao TEXT")
+        # até aqui só havia portais do Sistema Indústria (SENAI, SESI, IEL...)
+        con.execute("UPDATE editais SET instituicao = 'SENAI'")
     if "da_carga" not in colunas:
         con.execute("ALTER TABLE editais ADD COLUMN da_carga INTEGER DEFAULT 0")
         # antes a carga inicial era uma só: a primeira coleta que salvou algo
@@ -80,7 +85,7 @@ def salvar(ed: Edital, carga: bool = False) -> bool:
     dados = {
         "chave": ed.chave, "fonte": ed.fonte, "id_externo": ed.id_externo,
         "titulo": ed.titulo, "objeto": ed.objeto, "unidade": ed.unidade,
-        "uf": ed.uf or None, "url": ed.url, "situacao": ed.situacao, "tipo": ed.tipo,
+        "uf": ed.uf or None, "instituicao": ed.instituicao or None, "url": ed.url, "situacao": ed.situacao, "tipo": ed.tipo,
         "data_publicacao": ed.data_publicacao.isoformat() if ed.data_publicacao else None,
         "prazo": ed.prazo.isoformat() if ed.prazo else None,
         "relevancia": ed.relevancia, "relevante": int(ed.relevante),
@@ -94,7 +99,7 @@ def salvar(ed: Edital, carga: bool = False) -> bool:
         if existe:
             con.execute(
                 """UPDATE editais SET titulo=:titulo, objeto=:objeto, unidade=:unidade,
-                   uf=COALESCE(:uf, uf), url=:url, situacao=:situacao, tipo=:tipo, prazo=COALESCE(:prazo, prazo),
+                   uf=COALESCE(:uf, uf), instituicao=COALESCE(:instituicao, instituicao), url=:url, situacao=:situacao, tipo=:tipo, prazo=COALESCE(:prazo, prazo),
                    relevancia=:relevancia, relevante=:relevante, do_senai=:do_senai,
                    trecho_pdf=COALESCE(:trecho_pdf, trecho_pdf), ultimo_visto=:agora
                    WHERE chave=:chave""",
@@ -102,10 +107,10 @@ def salvar(ed: Edital, carga: bool = False) -> bool:
             )
             return False
         con.execute(
-            """INSERT INTO editais (chave, fonte, id_externo, titulo, objeto, unidade, uf,
+            """INSERT INTO editais (chave, fonte, id_externo, titulo, objeto, unidade, uf, instituicao,
                url, situacao, tipo, data_publicacao, prazo, relevancia, relevante,
                do_senai, trecho_pdf, primeiro_visto, ultimo_visto, da_carga)
-               VALUES (:chave, :fonte, :id_externo, :titulo, :objeto, :unidade, :uf,
+               VALUES (:chave, :fonte, :id_externo, :titulo, :objeto, :unidade, :uf, :instituicao,
                :url, :situacao, :tipo, :data_publicacao, :prazo, :relevancia, :relevante,
                :do_senai, :trecho_pdf, :agora, :agora, :da_carga)""",
             dados,
@@ -120,9 +125,18 @@ def marcar_notificados(chaves: list[str]):
         )
 
 
+# Filtro de instituição do painel. "SENAI" é só o que é do SENAI dentro dos
+# portais do Sistema Indústria, que também trazem SESI, IEL e federações.
+INSTITUICOES = {
+    "SENAI": "instituicao = 'SENAI' AND do_senai = 1",
+    "SEBRAE": "instituicao = 'SEBRAE'",
+}
+
+
 def _filtros(q="", apenas_relevantes=False, apenas_abertos=False, apenas_senai=False,
-             uf="") -> tuple[str, list]:
-    """Cláusula WHERE (com parâmetros) dos filtros do painel."""
+             uf="", inst="") -> tuple[str, list]:
+    """Cláusula WHERE (com parâmetros) dos filtros do painel.
+    apenas_senai é o filtro antigo "Só SENAI", o mesmo que inst="SENAI"."""
     where, params = [], []
     if q:
         where.append("(titulo || ' ' || COALESCE(objeto,'') || ' ' || COALESCE(unidade,'')) LIKE ?")
@@ -133,8 +147,9 @@ def _filtros(q="", apenas_relevantes=False, apenas_abertos=False, apenas_senai=F
         where.append("(prazo IS NULL OR prazo >= date('now', 'localtime'))")
         for s in SITUACOES_ENCERRADAS:
             where.append(f"lower(COALESCE(situacao, '')) NOT LIKE '%{s}%'")
-    if apenas_senai:
-        where.append("do_senai = 1")
+    inst = (inst or ("SENAI" if apenas_senai else "")).upper()
+    if inst:
+        where.append(INSTITUICOES.get(inst, "0"))  # instituição desconhecida: nada
     if uf:
         where.append("uf = ?")
         params.append(uf)
@@ -142,8 +157,8 @@ def _filtros(q="", apenas_relevantes=False, apenas_abertos=False, apenas_senai=F
 
 
 def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
-           apenas_senai=False, limite: int = 500, uf: str = "") -> list[dict]:
-    where, params = _filtros(q, apenas_relevantes, apenas_abertos, apenas_senai, uf)
+           apenas_senai=False, limite: int = 500, uf: str = "", inst: str = "") -> list[dict]:
+    where, params = _filtros(q, apenas_relevantes, apenas_abertos, apenas_senai, uf, inst)
     sql = "SELECT * FROM editais" + where
     sql += """ ORDER BY CASE
                  WHEN prazo IS NULL THEN 1
@@ -155,14 +170,21 @@ def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
         return [dict(r) for r in con.execute(sql, params)]
 
 
-def contar_por_uf(q: str = "", apenas_relevantes=False, apenas_abertos=False,
-                  apenas_senai=False) -> dict[str, int]:
-    """Quantos processos cada estado tem com os mesmos filtros de listar()
-    (menos o de estado): os números dos botões de estado do painel."""
-    where, params = _filtros(q, apenas_relevantes, apenas_abertos, apenas_senai)
-    where += (" AND " if where else " WHERE ") + "uf IS NOT NULL"
+def contagens(q: str = "", apenas_relevantes=False, apenas_abertos=False,
+              uf: str = "", inst: str = "") -> dict:
+    """Números dos botões do painel, com os mesmos filtros de listar().
+    Cada grupo ignora o próprio filtro: os estados contam com a instituição
+    escolhida e vice-versa. "" é o total do grupo (o botão Todos/Todas)."""
     with conectar() as con:
-        return dict(con.execute(f"SELECT uf, COUNT(*) FROM editais{where} GROUP BY uf", params))
+        where, params = _filtros(q, apenas_relevantes, apenas_abertos, inst=inst)
+        ufs = dict(con.execute(
+            f"SELECT uf, COUNT(*) FROM editais{where} GROUP BY uf", params).fetchall())
+        ufs = {"": sum(ufs.values()), **{k: v for k, v in ufs.items() if k}}
+        where, params = _filtros(q, apenas_relevantes, apenas_abertos, uf=uf)
+        casos = ", ".join(f"COALESCE(SUM({cond}), 0)" for cond in INSTITUICOES.values())
+        linha = con.execute(f"SELECT COUNT(*), {casos} FROM editais{where}", params).fetchone()
+        insts = dict(zip(["", *INSTITUICOES], linha))
+    return {"ufs": ufs, "instituicoes": insts}
 
 
 def resumo(desde: str | None = None) -> dict:
@@ -176,7 +198,9 @@ def resumo(desde: str | None = None) -> dict:
         r = con.execute(
             """SELECT COUNT(*) AS total,
                       COALESCE(SUM(relevante), 0) AS relevantes,
-                      COALESCE(SUM(relevante AND do_senai), 0) AS relevantes_senai,
+                      COALESCE(SUM(relevante AND do_senai AND instituicao = 'SENAI'), 0)
+                          AS relevantes_senai,
+                      COALESCE(SUM(relevante AND instituicao = 'SEBRAE'), 0) AS relevantes_sebrae,
                       COALESCE(SUM(relevante AND prazo IS NOT NULL), 0) AS com_prazo,
                       COALESCE(SUM(relevante AND NOT da_carga
                                    AND replace(primeiro_visto, 'T', ' ') > COALESCE(
