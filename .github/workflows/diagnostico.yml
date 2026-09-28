@@ -1,0 +1,71 @@
+# Diagnostica portais de compras numa máquina do GitHub e guarda o resultado
+# como artefato. O relatório também sai no log do passo "Diagnosticar".
+# Serve para mapear portais novos (ex.: SENAI-SP e SENAI-RJ) antes de escrever
+# o coletor, e para investigar quando uma coleta começa a falhar.
+name: Diagnóstico de portais
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: "URLs separadas por espaço (vazio = portais de SP e RJ)"
+        required: false
+        default: ""
+  # Também roda quando o próprio diagnóstico muda num branch de trabalho do
+  # Claude, porque "Run workflow" só aparece depois que o arquivo chega ao main.
+  push:
+    branches: ["claude/**"]
+    paths:
+      - .github/workflows/diagnostico.yml
+      - app/diagnostico.py
+      - scripts/diagnostico_portais.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnostico
+  cancel-in-progress: true
+
+env:
+  TZ: America/Sao_Paulo
+  URLS_PADRAO: >-
+    https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=ME
+    https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
+    https://www.firjan.com.br/senai-transparencia/transparencia/licitacoes-processos-de-selecao/
+    https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
+    https://www.sp.senai.br/licitacao
+    http://editais.sesisenaisp.org.br
+
+jobs:
+  diagnosticar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependências
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Diagnosticar
+        env:
+          URLS: ${{ inputs.urls }}
+        # set -f: o "?" das URLs não pode ser lido como curinga de arquivo
+        run: |
+          set -f
+          python scripts/diagnostico_portais.py ${URLS:-$URLS_PADRAO}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostico
+          path: diagnostico/portais
+          if-no-files-found: warn
+          retention-days: 14

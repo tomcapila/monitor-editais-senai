@@ -27,7 +27,9 @@ app/
     demo.py                  dados fictícios para testar a interface
 static/index.html            painel
 scripts/diagnostico_fiemg.py diagnóstico pelo terminal (navegador visível)
+scripts/diagnostico_portais.py diagnóstico de várias URLs, com relatório no terminal
 .github/workflows/coleta.yml coleta agendada + publicação no GitHub Pages
+.github/workflows/diagnostico.yml diagnóstico de portais no GitHub Actions
 ```
 
 ## Instalação
@@ -118,6 +120,24 @@ O GitHub pode pausar workflows agendados de repositórios sem atividade por
 - Mudanças no layout do portal quebram o coletor. Fique de olho nos erros
   mostrados no topo do painel.
 - Mantenha frequência baixa de acesso e respeite os termos de uso do portal.
+
+## Diagnosticar outros portais
+
+Para mapear um portal novo (ou entender por que uma fonte parou), rode
+
+```bash
+python scripts/diagnostico_portais.py URL [URL ...]
+```
+
+O relatório lista as tabelas, os links com cara de edital e as chamadas AJAX
+da página. Em portais Paradigma (endereço com `Mural.aspx`, como FIEMG e
+Firjan), ele também faz as mesmas consultas do coletor `fiemg_api` e mostra
+os editais que sairiam delas. Os arquivos ficam em `diagnostico/portais/`.
+
+Sem Python local, use **Actions > Diagnóstico de portais > Run workflow**.
+Deixe as URLs em branco para diagnosticar os portais de SP e RJ. O relatório
+sai no log do passo "Diagnosticar" e os arquivos ficam no artefato
+`diagnostico` da execução.
 
 ## Adicionar outro estado
 
