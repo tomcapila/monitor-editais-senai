@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     agendador.shutdown(wait=False)
 
 
-app = FastAPI(title="Monitor de editais SENAI", lifespan=lifespan)
+app = FastAPI(title="Monitor de editais SENAI e Sebrae", lifespan=lifespan)
 diagnostico.SAIDA.mkdir(exist_ok=True)
 app.mount("/diagnostico-arquivos", StaticFiles(directory=diagnostico.SAIDA), name="diag")
 
@@ -43,15 +43,15 @@ def pagina():
 
 @app.get("/api/editais")
 def api_editais(q: str = "", relevantes: bool = True, abertos: bool = True,
-                senai: bool = False, uf: str = ""):
-    return db.listar(q, relevantes, abertos, senai, uf=uf)
+                senai: bool = False, uf: str = "", inst: str = ""):
+    return db.listar(q, relevantes, abertos, senai, uf=uf, inst=inst)
 
 
-@app.get("/api/estados")
-def api_estados(q: str = "", relevantes: bool = True, abertos: bool = True,
-                senai: bool = False):
-    """Contagem por estado com os filtros atuais (menos o de estado)."""
-    return db.contar_por_uf(q, relevantes, abertos, senai)
+@app.get("/api/contagens")
+def api_contagens(q: str = "", relevantes: bool = True, abertos: bool = True,
+                  uf: str = "", inst: str = ""):
+    """Números dos botões de estado e de instituição, com os filtros atuais."""
+    return db.contagens(q, relevantes, abertos, uf, inst)
 
 
 @app.get("/api/resumo")

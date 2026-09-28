@@ -1,7 +1,8 @@
-# Monitor de editais SENAI (MG, RJ, SP)
+# Monitor de editais SENAI e Sebrae (MG, RJ, SP)
 
-Coleta editais e chamamentos públicos dos portais de compras da FIEMG (MG)
-e da Firjan (RJ) e da transparência do SENAI-SP,
+Coleta editais e chamamentos públicos do SENAI (portais de compras da FIEMG
+e da Firjan e transparência do SENAI-SP) e do Sebrae (licitações do Canal do
+Fornecedor e credenciamentos do Sebrae One e do SGF) em MG, RJ e SP,
 filtra os que interessam para consultoria/instrutoria PJ, guarda num SQLite,
 mostra num painel HTML e avisa por Telegram ou e-mail quando surge algo novo.
 
@@ -25,6 +26,9 @@ app/
     paradigma_api.py         portais Paradigma (FIEMG e Firjan) pelo serviço JSON (padrão)
     fiemg_paradigma.py       Portal de Compras FIEMG lendo as tabelas do HTML (alternativa)
     sistema_transparencia.py API de licitações da transparência do SENAI-SP
+    sebrae_canal.py          licitações do Sebrae (Canal do Fornecedor), por estado
+    sebrae_one.py            credenciamentos do Sebrae Minas (Sebrae One)
+    sebrae_sgf.py            credenciamentos do Sebrae no SGF (RJ e SP)
     pagina_links.py          páginas simples com links/PDFs (modelo p/ outros estados)
     demo.py                  dados fictícios para testar a interface
 static/index.html            painel
@@ -128,6 +132,18 @@ O GitHub pode pausar workflows agendados de repositórios sem atividade por
   link é a página de transparência, ou o PDF do edital quando ela o lista
   (só os processos mais recentes aparecem lá). "Esconder encerrados" usa a
   situação que a API informa ("Encerrado/Concluído").
+- Sebrae, licitações: o Canal do Fornecedor devolve a lista nacional de
+  processos "Em andamento" de uma vez (315 em 28/09/2026); cada estado é
+  separado pela UF da unidade. O prazo quase nunca vem na lista: confira no
+  edital.
+- Sebrae MG, credenciamento: cada edital do Sebrae One é um item, e cada
+  chamada dele é outro. Em 28/09/2026 os editais estavam abertos e as 13
+  chamadas, fechadas. Como "credenciamento" é termo relevante, todos os
+  editais do Sebrae One aparecem como relevantes (inclusive os de manutenção
+  predial ou uniformes); use `termos_excluir` para esconder assuntos.
+- Sebrae RJ e SP, credenciamento: o SGF é lido pela lista nacional de
+  editais abertos (trocar o estado no filtro do site fazia a lista sumir). O
+  link leva à página de inscrição, que pede login.
 - SENAI-SP: o portal de fornecedores (editais.sesisenaisp.org.br, SAP) não
   é consultado, porque exige preencher a busca a cada consulta. A API cobre
   os mesmos processos publicados na transparência.
@@ -164,6 +180,9 @@ os arquivos ficam no artefato `diagnostico` da execução.
 
 Crie um módulo em `app/coletores/` herdando de `Coletor`, devolva uma lista de
 `Edital` em `coletar()`, registre o tipo em `app/coletores/__init__.py` e
-adicione a fonte no `config.yaml` com o campo `uf` (sigla do estado, que
-aparece no painel e nos alertas). Para sites simples, `pagina_links` já pode
+adicione a fonte no `config.yaml` com os campos `uf` (sigla do estado) e
+`instituicao` (`SENAI` para portais do Sistema Indústria, `SEBRAE` para os do
+Sebrae), que aparecem no painel e nos alertas. O botão "SENAI" do painel mostra
+só o que é do SENAI dentro dos portais da indústria, que também trazem SESI,
+IEL e federações. Para sites simples, `pagina_links` já pode
 servir sem código novo.

@@ -13,6 +13,10 @@ MURAL = """<!doctype html><html><meta charset="utf-8"><title>PORTAL DE COMPRAS T
 <table id="tbEditais"><thead><tr><th>Número</th><th>Objeto</th></tr></thead>
 <tbody><tr><td>CRED 1</td><td>Credenciamento de consultores</td></tr></tbody></table>
 <a href="/arquivos/edital-cred-1.pdf">Edital de credenciamento 1</a>
+<script>
+  // corpo binário (como o gzip que o Sebrae One manda): não pode derrubar o diagnóstico
+  fetch("/binario", {method: "POST", body: new Uint8Array([0x1f, 0x8b, 0x08, 0xff])});
+</script>
 <a href="/contato">Fale conosco</a>
 </body></html>"""
 
@@ -69,6 +73,8 @@ def test_diagnostico_de_portal_paradigma(portal, tmp_path):
     assert ed["unidade"] == "SENAI/RJ - SEDE"
     assert ed["prazo"] == "2026-10-30"
     assert r["paradigma"]["rfis"]["registros"] == 0
+    assert {"url": f"{portal}/binario", "post": "(4 bytes binários)"}.items() <= next(
+        c for c in r["rede"] if c["url"].endswith("/binario")).items()
 
     for arq in ("pagina.html", "tela.png", "tabelas.json", "links.json", "rede.json",
                 "resumo.json", "paradigma.json"):

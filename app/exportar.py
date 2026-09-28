@@ -18,8 +18,9 @@ from .config import BASE_DIR, STATIC_DIR, carregar_config
 SAIDA = BASE_DIR / "site"
 
 # só o que o painel mostra ou usa para filtrar
-CAMPOS = ("id_externo", "titulo", "objeto", "unidade", "uf", "url", "situacao", "tipo",
-          "data_publicacao", "prazo", "relevante", "do_senai", "primeiro_visto", "da_carga")
+CAMPOS = ("id_externo", "titulo", "objeto", "unidade", "uf", "instituicao", "url", "situacao",
+          "tipo", "data_publicacao", "prazo", "relevante", "do_senai", "primeiro_visto",
+          "da_carga")
 
 
 def url_workflow() -> str | None:

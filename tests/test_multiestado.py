@@ -79,6 +79,7 @@ def test_migra_banco_antigo(tmp_path, monkeypatch):
 
     eds = {e["chave"]: e for e in db.listar(apenas_relevantes=False, apenas_abertos=False)}
     assert {e["uf"] for e in eds.values()} == {"MG"}
+    assert {e["instituicao"] for e in eds.values()} == {"SENAI"}
     assert (eds["a"]["da_carga"], eds["b"]["da_carga"], eds["c"]["da_carga"]) == (1, 1, 0)
     assert db.resumo()["pos_carga"] == 1
     assert not db.fonte_nova("Portal de Compras FIEMG")
@@ -89,6 +90,11 @@ def test_alerta_mostra_o_estado():
     ed = Edital(fonte="Portal", titulo="Credenciamento", url="https://x.test",
                 unidade="SENAI/RJ - SEDE", uf="RJ")
     assert "RJ | SENAI/RJ - SEDE | prazo não identificado" in alertas._resumo([ed])
+    ed = Edital(fonte="Canal do Fornecedor", titulo="Credenciamento", url="https://x.test",
+                unidade="Sebrae/MG", uf="MG", instituicao="SEBRAE")
+    assert "MG | Sebrae/MG | prazo" in alertas._resumo([ed])  # a unidade já diz Sebrae
+    ed.unidade = "Regional Norte"
+    assert "MG | SEBRAE | Regional Norte | prazo" in alertas._resumo([ed])
 
 
 def test_filtro_por_estado(config_demo):
@@ -106,6 +112,39 @@ def test_filtro_por_estado(config_demo):
         assert len(rj) == 3 and {e["uf"] for e in rj} == {"RJ"}
         assert cliente.get("/api/resumo").json()["ufs"] == {"MG": 3, "RJ": 3}
         # os números dos botões acompanham os outros filtros
-        assert cliente.get("/api/estados", params=todos).json() == {"MG": 3, "RJ": 3}
-        assert cliente.get("/api/estados").json() == {"MG": 2, "RJ": 2}  # só relevantes
-        assert cliente.get("/api/estados", params={"q": "instrutoria"}).json() == {"MG": 1, "RJ": 1}
+        ufs = lambda **p: cliente.get("/api/contagens", params=p).json()["ufs"]
+        assert ufs(**todos) == {"": 6, "MG": 3, "RJ": 3}
+        assert ufs() == {"": 4, "MG": 2, "RJ": 2}  # só relevantes
+        assert ufs(q="instrutoria") == {"": 2, "MG": 1, "RJ": 1}
+        # o estado escolhido não muda os números dos estados
+        assert ufs(uf="RJ") == {"": 4, "MG": 2, "RJ": 2}
+
+
+def test_filtro_por_instituicao(config_demo):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    demo = next(f for f in config_demo["fontes"] if f["tipo"] == "demo")
+    config_demo["fontes"].append({**demo, "nome": "Exemplo Sebrae RJ", "uf": "RJ",
+                                  "instituicao": "SEBRAE"})
+    executar_coleta()
+    todos = {"relevantes": "false", "abertos": "false"}
+    with TestClient(app) as cliente:
+        listar = lambda **p: cliente.get("/api/editais", params={**todos, **p}).json()
+        sebrae = listar(inst="SEBRAE")
+        assert len(sebrae) == 3 and {e["instituicao"] for e in sebrae} == {"SEBRAE"}
+        # "SENAI" é só o que é do SENAI nos portais da indústria: o de exemplo
+        # do SESI fica de fora, e os do Sebrae que citam o SENAI também
+        senai = listar(inst="SENAI")
+        assert {e["fonte"] for e in senai} == {"Dados de exemplo"} and len(senai) == 2
+        assert listar(senai="true") == senai  # a caixa antiga "Só SENAI" continua valendo
+
+        c = cliente.get("/api/contagens", params=todos).json()
+        assert c["instituicoes"] == {"": 6, "SENAI": 2, "SEBRAE": 3}
+        c = cliente.get("/api/contagens", params={**todos, "inst": "SEBRAE", "uf": "MG"}).json()
+        assert c["ufs"] == {"": 3, "RJ": 3}  # estados contam só o Sebrae
+        assert c["instituicoes"] == {"": 3, "SENAI": 2, "SEBRAE": 0}  # instituições, só MG
+
+        r = cliente.get("/api/resumo").json()
+        assert (r["relevantes_senai"], r["relevantes_sebrae"]) == (2, 2)

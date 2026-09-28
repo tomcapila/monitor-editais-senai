@@ -1,4 +1,4 @@
-# Configuração do monitor de editais SENAI
+# Configuração do monitor de editais SENAI e Sebrae
 # Edite este arquivo para mudar fontes, palavras-chave e frequência.
 
 coleta:
@@ -38,7 +38,10 @@ diagnostico:
   tempo_limite_segundos: 180
 
 fontes:
-  # Cada fonte tem um estado (uf), mostrado no painel e nos alertas.
+  # Cada fonte tem um estado (uf) e uma instituição, mostrados no painel e nos
+  # alertas. instituicao: SENAI nos portais do Sistema Indústria (que também
+  # trazem SESI, IEL e federações; o botão "SENAI" do painel mostra só o que é
+  # do SENAI) e SEBRAE nas fontes do Sebrae.
   # A primeira coleta de uma fonte nova é a carga inicial: não gera alertas.
 
   # Coletor principal: usa o serviço JSON do próprio portal (mesmos dados das
@@ -47,6 +50,7 @@ fontes:
   - tipo: paradigma_api
     nome: Portal de Compras FIEMG
     uf: MG
+    instituicao: SENAI
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
     ativo: true
     # mural = processos (inclui credenciamentos); chamamentos e rfis = tela
@@ -61,6 +65,7 @@ fontes:
   - tipo: paradigma_api
     nome: Portal de Compras Firjan
     uf: RJ
+    instituicao: SENAI
     url: https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
     ativo: true
     listas: [mural, chamamentos, rfis]
@@ -77,6 +82,7 @@ fontes:
   - tipo: sistema_transparencia
     nome: Transparência SENAI-SP
     uf: SP
+    instituicao: SENAI
     # página pública: link dos processos e, quando ela lista, o PDF do edital
     url: https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
     departamento: SENAI-SP
@@ -84,10 +90,64 @@ fontes:
     anos: 2
     ativo: true
 
+  # ---------- Sebrae ----------
+  # Licitações: o Canal do Fornecedor publica as de todo o Sistema Sebrae numa
+  # lista só. Uma fonte por estado, separada pelas 'marcas' (texto que aparece
+  # no número ou na unidade do processo); a lista é lida uma vez por coleta.
+  - tipo: sebrae_canal
+    nome: Sebrae MG - licitações
+    uf: MG
+    instituicao: SEBRAE
+    url: https://www.scf3.sebrae.com.br/portalcf/Licitacoes
+    marcas: [SEBRAE-MG, SEBRAE/MG, SEBRAE MINAS, MINAS GERAIS]
+    ativo: true
+
+  - tipo: sebrae_canal
+    nome: Sebrae RJ - licitações
+    uf: RJ
+    instituicao: SEBRAE
+    url: https://www.scf3.sebrae.com.br/portalcf/Licitacoes
+    marcas: [SEBRAE-RJ, SEBRAE/RJ, RIO DE JANEIRO]  # "SEBRAE RIO" pegaria RN e RS
+    ativo: true
+
+  - tipo: sebrae_canal
+    nome: Sebrae SP - licitações
+    uf: SP
+    instituicao: SEBRAE
+    url: https://www.scf3.sebrae.com.br/portalcf/Licitacoes
+    marcas: [SEBRAE-SP, SEBRAE/SP, SEBRAE SAO PAULO, SEBRAE-SAO PAULO]
+    ativo: true
+
+  # Credenciamento de consultoria e instrutoria. MG: Sebrae One, plataforma
+  # própria do Sebrae Minas (cada chamada aberta num edital vira um item).
+  - tipo: sebrae_one
+    nome: Sebrae MG - credenciamento
+    uf: MG
+    instituicao: SEBRAE
+    url: https://credenciamento.sebraemg.com.br/
+    ativo: true
+
+  # RJ e SP: SGF, sistema nacional do Sebrae (o SOMA do Sebrae-SP inscreve
+  # por ele). Lê os editais com situação "Aberto" do estado.
+  - tipo: sebrae_sgf
+    nome: Sebrae RJ - credenciamento
+    uf: RJ
+    instituicao: SEBRAE
+    url: https://sgf.sebrae.com.br/Home/
+    ativo: true
+
+  - tipo: sebrae_sgf
+    nome: Sebrae SP - credenciamento
+    uf: SP
+    instituicao: SEBRAE
+    url: https://sgf.sebrae.com.br/Home/
+    ativo: true
+
   # Alternativa para a FIEMG: lê as tabelas do HTML. Use se o serviço JSON mudar.
   - tipo: fiemg_paradigma
     nome: Portal de Compras FIEMG
     uf: MG
+    instituicao: SENAI
     url: https://compras.fiemg.com.br/portal/Mural.aspx?nNmTela=E
     ativo: false
     # Textos de links que o coletor tenta clicar para carregar listas completas.
@@ -102,6 +162,7 @@ fontes:
   - tipo: pagina_links
     nome: FIEMG credenciamento de consultores (IEL)
     uf: MG
+    instituicao: SENAI
     url: https://www.fiemg.com.br/area-de-interesse/capacitacao-empresarial/credenciamento-de-consultores/
     ativo: true             # ative se quiser acompanhar também o IEL-MG
     unidade: IEL-MG
@@ -109,6 +170,7 @@ fontes:
   - tipo: demo
     nome: Dados de exemplo
     uf: MG
+    instituicao: SENAI
     ativo: false             # ative só para testar a interface sem internet
 
 alertas:

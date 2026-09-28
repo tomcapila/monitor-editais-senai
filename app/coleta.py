@@ -81,6 +81,7 @@ def executar_coleta() -> dict:
                     progresso.passo(f"Edital {n} de {len(editais)}", n - 1, len(editais))
                     encontrados += 1
                     ed.uf = ed.uf or fonte.get("uf", "")
+                    ed.instituicao = ed.instituicao or fonte.get("instituicao", "")
                     # ".pdf" no caminho ou no fim do endereço (ex.: DocumentosSap?...&name=x.pdf)
                     url = ed.url.lower().split("#")[0]
                     eh_pdf = url.split("?")[0].endswith(".pdf") or url.endswith(".pdf")
