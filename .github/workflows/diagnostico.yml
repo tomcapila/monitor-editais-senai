@@ -8,7 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       urls:
-        description: "URLs separadas por espaço (vazio = portais de SP e RJ)"
+        description: "URLs abertas no navegador, separadas por espaço (vazio = portais de SP e RJ)"
+        required: false
+        default: ""
+      apis:
+        description: "URLs de API consultadas direto, separadas por espaço (vazio = API de transparência do SENAI-SP)"
         required: false
         default: ""
   # Também roda quando o próprio diagnóstico muda num branch de trabalho do
@@ -29,13 +33,17 @@ concurrency:
 
 env:
   TZ: America/Sao_Paulo
+  # RJ: Portal de Compras Firjan (Paradigma). SP: páginas de transparência do
+  # SENAI-SP (o portal de fornecedores SAP exige preencher a busca e ficou de fora).
   URLS_PADRAO: >-
-    https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=ME
     https://portaldecompras.firjan.com.br/portal/Mural.aspx?nNmTela=E
-    https://www.firjan.com.br/senai-transparencia/transparencia/licitacoes-processos-de-selecao/
     https://transparencia.sp.senai.br/licitacoes/licitacoes-editais
-    https://www.sp.senai.br/licitacao
-    http://editais.sesisenaisp.org.br
+    https://www.sp.senai.br/para-a-sua-empresa/licitacoes
+    https://prestacaocontastcu.sp.senai.br/
+  # API por trás dos botões "Salvar em XLSX" da transparência do SENAI-SP
+  APIS_PADRAO: >-
+    https://sistematransparenciaweb.com.br/api-licitacoes/publico/licitacoes/export?ano=2026&departamento=SENAI-SP&entidade=SENAI&formatoExportacao=XLSX
+    https://sistematransparenciaweb.com.br/api-licitacoes/publico/licitacoes?ano=2026&departamento=SENAI-SP&entidade=SENAI
 
 jobs:
   diagnosticar:
@@ -51,16 +59,18 @@ jobs:
 
       - name: Instalar dependências
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements.txt openpyxl
           python -m playwright install --with-deps chromium
 
       - name: Diagnosticar
         env:
           URLS: ${{ inputs.urls }}
+          APIS: ${{ inputs.apis }}
         # set -f: o "?" das URLs não pode ser lido como curinga de arquivo
         run: |
           set -f
-          python scripts/diagnostico_portais.py ${URLS:-$URLS_PADRAO}
+          python scripts/diagnostico_portais.py --todos-links ${URLS:-$URLS_PADRAO} \
+            --api ${APIS:-$APIS_PADRAO}
 
       - uses: actions/upload-artifact@v4
         if: always()

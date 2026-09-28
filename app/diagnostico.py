@@ -47,6 +47,16 @@ els => els.slice(0, 400).map(a => ({
 }))
 """
 JS_IFRAMES = "els => els.map(f => f.src)"
+# Formulários: filtros de ano, paginação e busca costumam ser um <form> com GET
+JS_FORMS = """
+els => els.map(f => ({
+  action: f.action, metodo: (f.method || 'get').toUpperCase(),
+  campos: [...f.elements].filter(e => e.name).slice(0, 30).map(e => ({
+    nome: e.name, tipo: e.type, valor: e.value,
+    opcoes: e.options ? [...e.options].slice(0, 20).map(o => o.value + '=' + o.text.trim()) : undefined,
+  })),
+}))
+"""
 
 # Consulta de teste ao serviço Paradigma: poucos registros por lista
 REGISTROS_TESTE = 10
@@ -169,6 +179,7 @@ def rodar(url: str = URL_PADRAO, visivel: bool = False, pausa=None,
             tabelas = page.eval_on_selector_all("table", JS)
             links = page.eval_on_selector_all("a[href]", JS_LINKS)
             iframes = page.eval_on_selector_all("iframe", JS_IFRAMES)
+            forms = page.eval_on_selector_all("form", JS_FORMS)
             titulo, url_final = page.title(), page.url
             paradigma = testar_paradigma(page) if "mural.aspx" in url_final.lower() else None
             if pausa:
@@ -186,6 +197,7 @@ def rodar(url: str = URL_PADRAO, visivel: bool = False, pausa=None,
             "tabelas": tabelas,
             "links": links,
             "iframes": iframes,
+            "forms": forms,
             "rede": chamadas,
             "paradigma": paradigma,
         }
@@ -215,7 +227,7 @@ PISTAS = ("edital", "editais", "credenciamento", "chamamento", "licita", "proces
           "consultor", "instrutor", "fornecedor", "compras", ".pdf")
 
 
-def relatorio(r: dict, max_texto: int = 1500) -> str:
+def relatorio(r: dict, max_texto: int = 1500, todos_links: bool = False) -> str:
     """Resumo legível de um diagnóstico, para o terminal e o log do GitHub Actions."""
     linhas = [f"=== {r.get('url')}"]
     if r.get("status") != "ok":
@@ -233,10 +245,16 @@ def relatorio(r: dict, max_texto: int = 1500) -> str:
                       f"cabeçalhos={t['headers'][:10]}")
         linhas += [f"    {ln[:8]}" for ln in t["linhas"][:2]]
 
-    pistas = [a for a in r["links"]
-              if any(p in f"{a['texto']} {a['href']}".lower() for p in PISTAS)]
+    pistas = [a for a in r["links"] if todos_links
+              or any(p in f"{a['texto']} {a['href']}".lower() for p in PISTAS)]
     linhas.append(f"\n-- {len(r['links'])} links, {len(pistas)} com cara de edital")
-    linhas += [f"  {a['texto']!r} -> {a['href']}" for a in pistas[:60]]
+    linhas += [f"  {a['texto']!r} -> {a['href']}" for a in pistas[:60 + 340 * todos_links]]
+
+    for fm in r.get("forms") or []:
+        linhas.append(f"\n-- Formulário {fm['metodo']} {fm['action']}")
+        for c in fm["campos"]:
+            opcoes = f" opções={c['opcoes']}" if c.get("opcoes") else ""
+            linhas.append(f"  {c['nome']} ({c['tipo']}) = {c['valor']!r}{opcoes}"[:max_texto])
 
     linhas.append(f"\n-- {len(r['rede'])} chamadas AJAX")
     for c in r["rede"]:
