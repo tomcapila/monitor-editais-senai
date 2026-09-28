@@ -14,7 +14,15 @@
     --tinta: #1D2A44;
     --tinta-2: #5B6680;
     --linha: #D6DCE6;
-    --caneta: #2448B0;
+    --caneta: #1D2A44;         /* ações neutras: as cores das marcas só identificam a instituição */
+    /* Cores oficiais: Manual de Marcas do Sistema Indústria 2024 (SENAI, Pantone 293 C,
+       com o detalhe em laranja Pantone Orange 021 C) e manual de marca do Sebrae 2024
+       (Pantone 2935 C; o manual não traz o hexadecimal, este é o equivalente em tela) */
+    --senai: #164194;
+    --senai-laranja: #E84910;  /* só detalhe: contra o branco não chega ao contraste de texto */
+    --senai-claro: #E8ECF5;
+    --sebrae: #0057B8;
+    --sebrae-claro: #E5EEF8;
     --grifo: #FFE36E;
     --alerta: #B42318;
     --fonte: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -24,6 +32,12 @@
     margin: 0; background: var(--papel); color: var(--tinta);
     font-family: var(--fonte); font-size: 16px; line-height: 1.5;
   }
+  /* Faixa das duas marcas no topo */
+  body::before {
+    content: ""; display: block; height: 6px;
+    background: linear-gradient(90deg, var(--senai) 0 47%, var(--senai-laranja) 47% 50%,
+                                var(--sebrae) 50% 100%);
+  }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 24px 72px; }
 
   /* Cabeçalho: nome da ferramenta, frase-resumo e a ação principal */
@@ -32,6 +46,8 @@
     margin: 0; font-size: 1.0625rem; font-weight: 800; letter-spacing: .01em;
     font-variation-settings: "wdth" 75;
   }
+  h1 .m-senai { color: var(--senai); }
+  h1 .m-sebrae { color: var(--sebrae); }
   .resumo {
     margin: 28px 0 6px; max-width: 30ch;
     font-size: clamp(1.625rem, 3.4vw, 2.375rem); line-height: 1.15; font-weight: 500;
@@ -63,10 +79,10 @@
     background: var(--caneta); color: #fff; border: 0; border-radius: 4px; padding: 10px 18px;
     white-space: nowrap;
   }
-  button:hover { background: #1B3A94; }
+  button:hover { background: #0F1A30; }
   button:disabled { opacity: .55; cursor: progress; }
   button.secundario { background: transparent; color: var(--caneta); box-shadow: inset 0 0 0 1.5px var(--caneta); }
-  button.secundario:hover { background: #E6ECF8; }
+  button.secundario:hover { background: #E4E7EE; }
   :is(button, input, a, summary):focus-visible { outline: 3px solid var(--caneta); outline-offset: 2px; }
 
   /* Progresso de coleta e diagnóstico */
@@ -100,6 +116,16 @@
   }
   .botoes button:hover { border-color: var(--caneta); }
   .botoes button[aria-pressed="true"] { background: var(--caneta); border-color: var(--caneta); color: #fff; }
+  /* Instituições: cada botão na cor da própria marca */
+  #instituicoes button[data-valor="SENAI"] { color: var(--senai); }
+  #instituicoes button[data-valor="SEBRAE"] { color: var(--sebrae); }
+  #instituicoes button[data-valor="SENAI"]:hover { border-color: var(--senai); }
+  #instituicoes button[data-valor="SEBRAE"]:hover { border-color: var(--sebrae); }
+  #instituicoes button[data-valor="SENAI"][aria-pressed="true"] {
+    background: var(--senai); border-color: var(--senai); color: #fff;
+    box-shadow: inset 0 -3px 0 var(--senai-laranja); }
+  #instituicoes button[data-valor="SEBRAE"][aria-pressed="true"] {
+    background: var(--sebrae); border-color: var(--sebrae); color: #fff; }
   .botoes .rotulo { align-self: center; min-width: 5.5em; font-size: .8125rem; color: var(--tinta-2); }
   @media (max-width: 520px) { .botoes .rotulo { flex-basis: 100%; min-width: 0; margin-bottom: -4px; } }
   .botoes .n { font-weight: 400; font-size: .8125rem; opacity: .75; font-variant-numeric: tabular-nums; }
@@ -109,8 +135,11 @@
   ol.lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--linha); }
   li.edital {
     display: grid; grid-template-columns: 172px minmax(0, 1fr) auto; gap: 8px 28px;
-    padding: 22px 0; border-bottom: 1px solid var(--linha);
+    padding: 22px 0 22px 18px; border-bottom: 1px solid var(--linha);
+    border-left: 4px solid var(--linha);
   }
+  li.edital[data-inst="SENAI"] { border-left-color: var(--senai); }
+  li.edital[data-inst="SEBRAE"] { border-left-color: var(--sebrae); }
   .ident { display: flex; flex-direction: column; gap: 3px; }
   .codigo {
     font-size: 1.0625rem; font-weight: 750; line-height: 1.2; font-variant-numeric: tabular-nums;
@@ -118,7 +147,15 @@
   }
   .unidade { font-size: .8125rem; color: var(--tinta-2); line-height: 1.35;
              font-variation-settings: "wdth" 88; }
-  .novo { font-size: .8125rem; font-weight: 700; color: var(--caneta); }
+  /* Selo da instituição: o nome escrito, para não depender só da cor (os dois azuis são próximos) */
+  .inst { align-self: flex-start; font-size: .75rem; font-weight: 750; letter-spacing: .05em;
+          padding: 2px 9px 2px 8px; border-radius: 999px; line-height: 1.5; }
+  .inst-SENAI { background: var(--senai-claro); color: var(--senai); }
+  .inst-SENAI::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+                        background: var(--senai-laranja); margin-right: 5px; vertical-align: 1px; }
+  .inst-SEBRAE { background: var(--sebrae-claro); color: var(--sebrae); }
+  .novo { align-self: flex-start; font-size: .8125rem; font-weight: 700; color: var(--tinta);
+          background: var(--grifo); padding: 0 6px; border-radius: 3px; }
 
   .corpo h2 { margin: 0 0 4px; font-size: 1.0625rem; font-weight: 700; line-height: 1.35; max-width: 68ch; }
   .objeto { margin: 0; font-size: 1.0625rem; line-height: 1.55; max-width: 68ch;
@@ -145,13 +182,17 @@
   a.abrir { color: var(--caneta); font-weight: 700; font-size: .9375rem; text-decoration: none;
             white-space: nowrap; padding-top: 1px; border-radius: 2px; }
   a.abrir:hover { text-decoration: underline; text-underline-offset: 3px; }
+  li.edital[data-inst="SENAI"] a.abrir { color: var(--senai); }
+  li.edital[data-inst="SEBRAE"] a.abrir { color: var(--sebrae); }
 
   .vazio { padding: 48px 0; color: var(--tinta-2); max-width: 60ch; }
   .vazio b { color: var(--tinta); }
+  .rodape { margin: 48px 0 0; padding-top: 14px; border-top: 1px solid var(--linha);
+            font-size: .8125rem; color: var(--tinta-2); max-width: 72ch; }
 
   @media (max-width: 720px) {
     .wrap { padding: 20px 16px 56px; }
-    li.edital { grid-template-columns: 1fr; gap: 10px; }
+    li.edital { grid-template-columns: 1fr; gap: 10px; padding-left: 14px; }
     .ident { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }
     .contagem { margin-left: 0; width: 100%; }
     .objeto { -webkit-line-clamp: 6; }
@@ -180,7 +221,7 @@
 <div class="wrap">
   <header>
     <div class="topo">
-      <h1>Editais SENAI e Sebrae</h1>
+      <h1>Editais <span class="m-senai">SENAI</span> e <span class="m-sebrae">Sebrae</span></h1>
       <button id="btnColetar" type="button">Coletar agora</button>
     </div>
     <div class="aviso" id="aviso" role="alert" hidden>
@@ -208,6 +249,8 @@
   </div>
 
   <ol class="lista" id="lista"></ol>
+
+  <p class="rodape">Monitor independente, sem vínculo oficial com o SENAI ou o Sebrae.</p>
 
   <details class="diag" id="diag">
     <summary>Diagnóstico do portal</summary>
@@ -372,13 +415,19 @@ function linhaPrazo(prazo) {
   return `<span class="prazo${dias <= 3 ? " urgente" : ""}">Inscrições até ${fmtData(prazo)}, ${quando}</span>`;
 }
 
-// "SP · Sebrae · Regional Norte"; a instituição só entra quando a unidade não
-// a menciona ("SENAI/DRMG - SEDE" já diz), como no alerta (app/alertas.py)
-function ondeEdital(e) {
+// Instituição do selo: a mesma regra dos botões (DA_INSTITUICAO), então um
+// processo do SESI no portal da FIEMG fica sem selo
+function instEdital(e) {
+  return Object.keys(DA_INSTITUICAO).find(k => DA_INSTITUICAO[k](e)) || "";
+}
+
+// "SP · Regional Norte". Sem selo, a instituição entra quando a unidade não a
+// menciona ("SENAI/DRMG - SEDE" já diz), como no alerta (app/alertas.py)
+function ondeEdital(e, comSelo) {
   const nomes = Object.fromEntries(INSTITUICOES);
   const inst = nomes[e.instituicao] || e.instituicao || "";
   const unidade = e.unidade || "";
-  const mostrar = inst && !normTexto(unidade).includes(normTexto(inst));
+  const mostrar = !comSelo && inst && !normTexto(unidade).includes(normTexto(inst));
   return [e.uf, mostrar ? inst : "", unidade].filter(Boolean).join(" · ");
 }
 
@@ -386,11 +435,14 @@ function itemEdital(e) {
   const soCodigo = ehCodigo(e.titulo);
   const codigo = soCodigo ? e.titulo : `Código ${e.id_externo}`;
   const objeto = e.objeto && e.objeto !== e.titulo ? e.objeto : "";
+  const inst = instEdital(e);
+  const nomeInst = Object.fromEntries(INSTITUICOES)[inst];
   return `
-    <li class="edital">
+    <li class="edital" data-inst="${esc(inst)}">
       <div class="ident">
+        ${inst ? `<span class="inst inst-${esc(inst)}">${esc(nomeInst)}</span>` : ""}
         <span class="codigo">${esc(codigo)}</span>
-        ${e.uf || e.unidade ? `<span class="unidade">${esc(ondeEdital(e))}</span>` : ""}
+        ${e.uf || e.unidade ? `<span class="unidade">${esc(ondeEdital(e, !!inst))}</span>` : ""}
         ${ehNovo(e) ? `<span class="novo">Novo</span>` : ""}
       </div>
       <div class="corpo">

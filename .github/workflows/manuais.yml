@@ -1,0 +1,33 @@
+# Lê os manuais de marca do SENAI e do Sebrae e mostra no log as cores
+# oficiais (Pantone, CMYK, RGB, hexadecimal). Uso pontual, para o visual do painel.
+name: Cores dos manuais de marca
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths:
+      - .github/workflows/manuais.yml
+      - scripts/ler_manuais.py
+
+permissions:
+  contents: read
+
+jobs:
+  ler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Ler os manuais
+        run: >-
+          python scripts/ler_manuais.py
+          "https://static.portaldaindustria.com.br/media/filer_public/fb/97/fb973be0-3496-4765-b62f-5720cc72768b/manual_de_marcas_senai_v_ni0208.pdf"
+          "https://static.portaldaindustria.com.br/media/filer_public/f5/9f/f59fd875-b07d-47f9-a305-83bf97fb7741/manual_de_marcas_2024_v1.pdf"
+          "https://sebraemg.com.br/diversos/web/docs/casademarcas/manuais/Manual_de_Marca_Sebrae.pdf"
+          "https://meuatendimento.sebrae.com.br/Sebrae/Portal%20Sebrae/UFs/SE/Anexos/NOVO%20MANUAL%20DA%20MARCA%20SEBRAE.pdf"
