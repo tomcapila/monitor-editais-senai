@@ -120,8 +120,9 @@ def marcar_notificados(chaves: list[str]):
         )
 
 
-def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
-           apenas_senai=False, limite: int = 500, uf: str = "") -> list[dict]:
+def _filtros(q="", apenas_relevantes=False, apenas_abertos=False, apenas_senai=False,
+             uf="") -> tuple[str, list]:
+    """Cláusula WHERE (com parâmetros) dos filtros do painel."""
     where, params = [], []
     if q:
         where.append("(titulo || ' ' || COALESCE(objeto,'') || ' ' || COALESCE(unidade,'')) LIKE ?")
@@ -137,9 +138,13 @@ def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
     if uf:
         where.append("uf = ?")
         params.append(uf)
-    sql = "SELECT * FROM editais"
-    if where:
-        sql += " WHERE " + " AND ".join(where)
+    return (" WHERE " + " AND ".join(where) if where else ""), params
+
+
+def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
+           apenas_senai=False, limite: int = 500, uf: str = "") -> list[dict]:
+    where, params = _filtros(q, apenas_relevantes, apenas_abertos, apenas_senai, uf)
+    sql = "SELECT * FROM editais" + where
     sql += """ ORDER BY CASE
                  WHEN prazo IS NULL THEN 1
                  WHEN prazo < date('now', 'localtime') THEN 2
@@ -148,6 +153,16 @@ def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
     params.append(limite)
     with conectar() as con:
         return [dict(r) for r in con.execute(sql, params)]
+
+
+def contar_por_uf(q: str = "", apenas_relevantes=False, apenas_abertos=False,
+                  apenas_senai=False) -> dict[str, int]:
+    """Quantos processos cada estado tem com os mesmos filtros de listar()
+    (menos o de estado): os números dos botões de estado do painel."""
+    where, params = _filtros(q, apenas_relevantes, apenas_abertos, apenas_senai)
+    where += (" AND " if where else " WHERE ") + "uf IS NOT NULL"
+    with conectar() as con:
+        return dict(con.execute(f"SELECT uf, COUNT(*) FROM editais{where} GROUP BY uf", params))
 
 
 def resumo(desde: str | None = None) -> dict:

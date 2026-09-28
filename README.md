@@ -83,9 +83,11 @@ ou no Agendador de Tarefas (Windows).
 
 ## Publicar de graça (GitHub Actions + GitHub Pages)
 
-O workflow `.github/workflows/coleta.yml` roda a coleta às 6h e às 18h
-(Brasília) numa máquina do GitHub e publica o painel como página estática,
-sem servidor. O banco fica no branch `dados`, reescrito a cada execução.
+O workflow `.github/workflows/coleta.yml` roda a coleta às 6h17, 12h17 e
+18h17 (Brasília) numa máquina do GitHub e publica o painel como página
+estática, sem servidor. O `cron` do GitHub usa UTC (9h, 15h e 21h UTC), pode
+atrasar e, em horários de muita carga, descartar uma execução; o minuto 17 e
+a coleta extra do meio-dia diminuem esse risco. O banco fica no branch `dados`, reescrito a cada execução.
 
 1. Crie um repositório **público** no GitHub (Pages grátis exige repositório
    público; os editais já são públicos, e `.env` e `editais.db` não sobem).
