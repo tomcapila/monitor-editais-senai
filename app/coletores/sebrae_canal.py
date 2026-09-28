@@ -10,9 +10,10 @@ por página) parece ser feita no navegador sobre a lista inteira: clicar em ">"
 não gerou nova chamada no teste de 28/09/2026. Se a resposta vier com uma página
 só, o coletor ainda tenta clicar em ">" e fica com o que tiver.
 
-A lista é nacional: cada fonte (uma por estado) separa os seus processos pelas
-'marcas' do config.yaml (ex.: "SEBRAE-MG" no número, "MINAS GERAIS" na
-unidade). As fontes de uma mesma coleta reaproveitam a lista já lida.
+A lista é nacional (315 processos em 28/09/2026): cada fonte (uma por estado)
+separa os seus pela UF da unidade que vem no registro; as 'marcas' do
+config.yaml (ex.: "SEBRAE-MG" no número) são reserva, se a UF faltar. As
+fontes de uma mesma coleta reaproveitam a lista já lida.
 """
 from __future__ import annotations
 
@@ -58,9 +59,13 @@ def _primeiro(reg: dict, *chaves: str) -> str:
     return ""
 
 
-def do_estado(reg: dict, marcas: list[str]) -> bool:
-    """O processo é do estado se alguma marca aparece em qualquer campo de texto
+def do_estado(reg: dict, uf: str, marcas: list[str]) -> bool:
+    """O processo é do estado pela UF da unidade (ZSebrae.Uf, que o site manda
+    desde 28/09/2026). Sem ela, vale alguma marca em qualquer campo de texto
     (número "CP/002-SEBRAE-MG-2026", unidade "SEBRAE MINAS GERAIS"...)."""
+    unidade = reg.get("ZSebrae")
+    if isinstance(unidade, dict) and _texto(unidade.get("Uf")):
+        return _texto(unidade["Uf"]).upper() == uf.upper()
     texto = normalizar(json.dumps(reg, ensure_ascii=False))
     return any(normalizar(m) in texto for m in marcas)
 
@@ -94,7 +99,7 @@ class ColetorSebraeCanal(Coletor):
         registros = self._registros()
         editais: dict[str, Edital] = {}
         for reg in registros:
-            if not do_estado(reg, marcas):
+            if not do_estado(reg, uf, marcas):
                 continue
             try:
                 ed = registro_para_edital(reg, self.nome, uf)

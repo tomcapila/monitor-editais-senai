@@ -100,6 +100,10 @@ class ColetorSebraeSgf(Coletor):
             try:
                 self.progresso.passo("Abrindo o SGF", 0, max_paginas)
                 page.goto(url, wait_until="networkidle", timeout=self.timeout_ms())
+                try:  # a lista chega depois do carregamento da página
+                    page.wait_for_selector("table[id$='gvEdital']", timeout=30000)
+                except Exception:
+                    pass  # o erro abaixo mostra o texto da página
                 for pagina in range(1, max_paginas + 1):
                     self.progresso.passo(f"Página {pagina}", pagina, max_paginas)
                     grade = page.query_selector("table[id$='gvEdital']")

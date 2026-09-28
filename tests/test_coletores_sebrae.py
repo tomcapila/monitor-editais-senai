@@ -32,7 +32,9 @@ EDITAIS_ONE = [
 
 def test_sebrae_one_uma_linha_por_chamada():
     itens = {e.id_externo: e for e in editais_para_itens(EDITAIS_ONE, "Sebrae MG")}
-    assert set(itens) == {"processo-64", "processo-65", "edital-63"}
+    # o edital sempre entra, e cada chamada também
+    assert set(itens) == {"edital-71", "processo-64", "processo-65", "edital-63"}
+    assert itens["edital-71"].titulo == "Edital 010/2026: EDUCAMPO"
     cafe = itens["processo-64"]
     assert cafe.titulo == "Edital 010/2026: EDUCAMPO · Abertura: Cafeicultura"
     assert cafe.objeto == "Convoca empresas de consultoria em cafeicultura"
@@ -151,17 +153,22 @@ def base(sites):
 def test_sebrae_one_pela_api(base):
     fonte = {"nome": "Sebrae MG - credenciamento", "api": f"{base}/one/api"}
     itens = ColetorSebraeOne(fonte, CONFIG).coletar()
-    assert len(itens) == 3
+    assert len(itens) == 4
 
 
 # ---------- Canal do Fornecedor
 
 def test_canal_marcas_do_estado():
     mg = ["SEBRAE-MG", "SEBRAE MINAS", "MINAS GERAIS"]
-    assert do_estado(CANAL_REGS[0], mg)
-    assert do_estado(CANAL_REGS[3], mg)  # pela unidade
-    assert not do_estado(CANAL_REGS[1], mg)
-    assert not do_estado(CANAL_REGS[2], mg)
+    assert do_estado(CANAL_REGS[0], "MG", mg)
+    assert do_estado(CANAL_REGS[3], "MG", mg)  # pela unidade
+    assert not do_estado(CANAL_REGS[1], "MG", mg)
+    assert not do_estado(CANAL_REGS[2], "MG", mg)
+    # com a UF da unidade no registro, ela decide (o Sebrae Nacional cita o RJ no objeto)
+    nacional = {"Id": 9, "Numero": "PE/001-SEBRAE-NA-2026", "Objeto": "Evento no Rio de Janeiro",
+                "ZSebrae": {"Descricao": "SEBRAE NACIONAL", "Uf": "DF"}}
+    assert not do_estado(nacional, "RJ", ["RIO DE JANEIRO"])
+    assert do_estado({**nacional, "ZSebrae": {"Uf": "rj"}}, "RJ", [])
 
 
 def test_canal_registro():

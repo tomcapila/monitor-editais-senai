@@ -5,9 +5,11 @@ Coletor do Sebrae One, a plataforma de credenciamento do Sebrae Minas
 e, dentro de cada um, os "processos": as chamadas de credenciamento abertas
 naquele edital (diagnóstico de 28/09/2026).
 
-Os editais costumam ser permanentes; o que muda são as chamadas. Por isso cada
-chamada vira um item (uma chamada nova gera alerta), e um edital sem chamada
-entra como um item só.
+Os editais costumam ser permanentes; o que muda são as chamadas. Por isso o
+edital vira um item (com a situação dele) e cada chamada vira outro, com as
+próprias datas e situação: uma chamada nova gera alerta, e um edital aberto
+continua visível quando as chamadas dele já fecharam (em 28/09/2026 as 13
+chamadas estavam com status "F").
 """
 from __future__ import annotations
 
@@ -23,7 +25,7 @@ log = logging.getLogger(__name__)
 URL_API = "https://api-credenciamento.sebraemg.com.br/api/editais-public"
 URL_SITE = "https://credenciamento.sebraemg.com.br"
 
-# status do edital na API; "A" é o único visto no diagnóstico
+# status na API: editais vieram com "A", chamadas com "F" (fechada) em 28/09/2026
 SITUACOES = {"A": "Aberto", "E": "Encerrado", "F": "Encerrado", "C": "Cancelado",
              "S": "Suspenso", "I": "Inativo"}
 
@@ -56,14 +58,11 @@ def editais_para_itens(editais: list[dict], fonte_nome: str) -> list[Edital]:
             tipo="Credenciamento",
             situacao=SITUACOES.get(_texto(ed.get("status")), _texto(ed.get("status"))),
         )
-        processos = [p for p in ed.get("processos") or [] if isinstance(p, dict)]
-        if not processos:
-            itens.append(Edital(
-                id_externo=f"edital-{ident}", titulo=nome,
-                objeto=_texto(ed.get("resumo") or ed.get("texto")),
-                data_publicacao=_data(ed.get("data_abertura")), **base))
-            continue
-        for proc in processos:
+        itens.append(Edital(
+            id_externo=f"edital-{ident}", titulo=nome,
+            objeto=_texto(ed.get("resumo") or ed.get("texto")),
+            data_publicacao=_data(ed.get("data_abertura")), **base))
+        for proc in (p for p in ed.get("processos") or [] if isinstance(p, dict)):
             pid = _texto(proc.get("id"))
             if not pid:
                 continue
