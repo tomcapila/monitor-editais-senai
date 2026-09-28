@@ -120,7 +120,7 @@ def marcar_notificados(chaves: list[str]):
 
 
 def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
-           apenas_senai=False, limite: int = 500) -> list[dict]:
+           apenas_senai=False, limite: int = 500, uf: str = "") -> list[dict]:
     where, params = [], []
     if q:
         where.append("(titulo || ' ' || COALESCE(objeto,'') || ' ' || COALESCE(unidade,'')) LIKE ?")
@@ -131,6 +131,9 @@ def listar(q: str = "", apenas_relevantes=False, apenas_abertos=False,
         where.append("(prazo IS NULL OR prazo >= date('now', 'localtime'))")
     if apenas_senai:
         where.append("do_senai = 1")
+    if uf:
+        where.append("uf = ?")
+        params.append(uf)
     sql = "SELECT * FROM editais"
     if where:
         sql += " WHERE " + " AND ".join(where)
@@ -167,7 +170,9 @@ def resumo(desde: str | None = None) -> dict:
                FROM editais""",
             {"desde": desde},
         ).fetchone()
-        return dict(r)
+        ufs = dict(con.execute(
+            "SELECT uf, COUNT(*) FROM editais WHERE uf IS NOT NULL GROUP BY uf").fetchall())
+        return {**dict(r), "ufs": ufs}
 
 
 def registrar_execucao(inicio: str, fim: str, encontrados: int, novos: int, erros: list[str]):

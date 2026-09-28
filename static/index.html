@@ -89,6 +89,11 @@
   .filtros label { display: inline-flex; gap: 7px; align-items: center; font-size: .9375rem;
                    cursor: pointer; border-radius: 3px; }
   .filtros input[type=checkbox] { accent-color: var(--caneta); width: 16px; height: 16px; margin: 0; }
+  .filtros select {
+    font: inherit; font-size: .9375rem; padding: 8px 10px; border: 1px solid var(--linha);
+    border-radius: 4px; background: var(--folha); color: var(--tinta);
+  }
+  .filtros select[hidden] { display: none; }
   .contagem { margin-left: auto; font-size: .875rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
 
   /* Lista de processos */
@@ -186,6 +191,7 @@
 
   <div class="filtros">
     <input type="search" id="busca" placeholder="Buscar no objeto, número ou unidade" aria-label="Buscar">
+    <select id="uf" aria-label="Estado" hidden><option value="">Todos os estados</option></select>
     <label><input type="checkbox" id="relevantes" checked> Só relevantes</label>
     <label><input type="checkbox" id="abertos" checked> Esconder encerrados</label>
     <label><input type="checkbox" id="senai"> Só SENAI</label>
@@ -274,14 +280,15 @@ let estatico = null;
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 // Mesmos filtros e ordem de db.listar()
-function listarEstatico({ q, relevantes, abertos, senai }) {
+function listarEstatico({ q, uf, relevantes, abertos, senai }) {
   const h = hojeISO(), busca = normTexto(q);
   const grupo = e => !e.prazo ? 1 : e.prazo < h ? 2 : 0;
   return estatico.editais
     .filter(e => (!busca || normTexto(`${e.titulo} ${e.objeto || ""} ${e.unidade || ""}`).includes(busca))
               && (!relevantes || e.relevante)
               && (!abertos || !e.prazo || e.prazo >= h)
-              && (!senai || e.do_senai))
+              && (!senai || e.do_senai)
+              && (!uf || e.uf === uf))
     .sort((a, b) => grupo(a) - grupo(b)
                  || (a.prazo || "").localeCompare(b.prazo || "")
                  || (b.primeiro_visto || "").localeCompare(a.primeiro_visto || ""))
@@ -298,6 +305,7 @@ function resumoEstatico() {
     relevantes_senai: rel.filter(e => e.do_senai).length,
     com_prazo: rel.filter(e => e.prazo).length,
     novos: rel.filter(ehNovo).length,
+    ufs: eds.reduce((c, e) => { if (e.uf) c[e.uf] = (c[e.uf] || 0) + 1; return c; }, {}),
     pos_carga: eds.filter(e => !e.da_carga).length,
     publicacao_de: pubs[0] || null,
     publicacao_ate: pubs[pubs.length - 1] || null,
@@ -347,7 +355,7 @@ function itemEdital(e) {
     <li class="edital">
       <div class="ident">
         <span class="codigo">${esc(codigo)}</span>
-        ${e.unidade ? `<span class="unidade">${esc(e.unidade)}</span>` : ""}
+        ${e.uf || e.unidade ? `<span class="unidade">${esc([e.uf, e.unidade].filter(Boolean).join(" · "))}</span>` : ""}
         ${ehNovo(e) ? `<span class="novo">Novo</span>` : ""}
       </div>
       <div class="corpo">
@@ -390,14 +398,15 @@ const seguro = fn => async (...args) => {
 /* ---------- Filtros: lembrados entre visitas e refletidos no endereço ---------- */
 // O endereço vence (um link compartilhado abre com os filtros de quem mandou);
 // sem nada nele, vale a última escolha feita neste navegador.
-const FILTROS_PADRAO = { q: "", relevantes: true, abertos: true, senai: false };
+const FILTROS_PADRAO = { q: "", uf: "", relevantes: true, abertos: true, senai: false };
 const CAIXAS = ["relevantes", "abertos", "senai"];
+const TEXTOS = ["q", "uf"];
 
 function lerFiltros() {
   const url = new URLSearchParams(location.search);
   const f = { ...FILTROS_PADRAO };
   if (Object.keys(f).some(k => url.has(k))) {
-    if (url.has("q")) f.q = url.get("q");
+    for (const k of TEXTOS) if (url.has(k)) f[k] = url.get(k);
     for (const k of CAIXAS) if (url.has(k)) f[k] = url.get(k) === "1";
     return f;
   }
@@ -410,22 +419,38 @@ function lerFiltros() {
 
 function aplicarFiltros(f) {
   $("busca").value = f.q;
+  ufEscolhida = f.uf;
+  $("uf").value = f.uf;  // as opções chegam com o resumo (preencherEstados)
   for (const k of CAIXAS) $(k).checked = f[k];
 }
 
 function guardarFiltros(f) {
   const url = new URLSearchParams();
-  if (f.q) url.set("q", f.q);
+  for (const k of TEXTOS) if (f[k]) url.set(k, f[k]);
   for (const k of CAIXAS) if (f[k] !== FILTROS_PADRAO[k]) url.set(k, f[k] ? "1" : "0");
   const qs = url.toString();
   history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash);
   try { localStorage.setItem("filtros", JSON.stringify(f)); } catch { /* segue sem lembrar */ }
 }
 
+// Estados com processos coletados, com a contagem. Só aparece com mais de um
+// estado (ou quando um link já chega filtrado por um estado).
+let ufEscolhida = "";
+function preencherEstados(ufs) {
+  const cont = { ...(ufs || {}) };
+  if (ufEscolhida && !(ufEscolhida in cont)) cont[ufEscolhida] = 0;
+  const siglas = Object.keys(cont).sort();
+  $("uf").innerHTML = `<option value="">Todos os estados</option>`
+    + siglas.map(uf => `<option value="${esc(uf)}">${esc(uf)} (${cont[uf]})</option>`).join("");
+  $("uf").value = ufEscolhida;
+  $("uf").hidden = siglas.length < 2 && !ufEscolhida;
+}
+
 let primeiraCarga = true;
 async function carregar() {
   const filtros = {
     q: $("busca").value.trim(),
+    uf: ufEscolhida,
     relevantes: $("relevantes").checked,
     abertos: $("abertos").checked,
     senai: $("senai").checked,
@@ -448,6 +473,7 @@ async function carregarResumo() {
   const r = estatico ? resumoEstatico()
     : await api("/api/resumo?" + new URLSearchParams(visitaAnterior ? { desde: visitaAnterior } : {}));
   $("tentar").hidden = true;
+  preencherEstados(r.ufs);
   if (!r.total) {
     $("resumo").textContent = "Nenhum processo coletado ainda.";
     $("resumo2").textContent = "Clique em Coletar agora para buscar nos portais de compras.";
@@ -640,6 +666,7 @@ let timer;
 const carregarSeguro = seguro(carregar);
 $("busca").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(carregarSeguro, 300); });
 ["relevantes", "abertos", "senai"].forEach(id => $(id).addEventListener("change", carregarSeguro));
+$("uf").addEventListener("change", () => { ufEscolhida = $("uf").value; carregarSeguro(); });
 
 /* ---------- Diagnóstico ---------- */
 function tabelaDiag(t) {

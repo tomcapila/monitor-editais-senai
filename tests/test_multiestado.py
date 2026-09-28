@@ -89,3 +89,19 @@ def test_alerta_mostra_o_estado():
     ed = Edital(fonte="Portal", titulo="Credenciamento", url="https://x.test",
                 unidade="SENAI/RJ - SEDE", uf="RJ")
     assert "RJ | SENAI/RJ - SEDE | prazo não identificado" in alertas._resumo([ed])
+
+
+def test_filtro_por_estado(config_demo):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    demo_mg = next(f for f in config_demo["fontes"] if f["tipo"] == "demo")
+    config_demo["fontes"].append({**demo_mg, "nome": "Exemplo RJ", "uf": "RJ"})
+    executar_coleta()
+    with TestClient(app) as cliente:
+        todos = {"relevantes": "false", "abertos": "false"}
+        assert len(cliente.get("/api/editais", params=todos).json()) == 6
+        rj = cliente.get("/api/editais", params={**todos, "uf": "RJ"}).json()
+        assert len(rj) == 3 and {e["uf"] for e in rj} == {"RJ"}
+        assert cliente.get("/api/resumo").json()["ufs"] == {"MG": 3, "RJ": 3}
